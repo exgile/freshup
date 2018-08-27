@@ -126,6 +126,7 @@
     <ClInclude Include="inventory.h" />
     <ClInclude Include="item.h" />
     <ClInclude Include="itemdb.h" />
+    <ClInclude Include="mail.h" />
     <ClInclude Include="pc.h" />
     <ClInclude Include="pc_manager.h" />
     <ClInclude Include="reader.h" />
@@ -147,6 +148,7 @@
     <ClCompile Include="inventory_delitem.cpp" />
     <ClCompile Include="item.cpp" />
     <ClCompile Include="itemdb.cpp" />
+    <ClCompile Include="mail.cpp" />
     <ClCompile Include="pc.cpp" />
     <ClCompile Include="pc_manager.cpp" />
     <ClCompile Include="reader.cpp" />

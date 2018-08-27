@@ -39,7 +39,7 @@ int main(int argc, char *argv[]) {
 		auto console = spdlog::stdout_color_mt("console");
 
 		boost::asio::io_context io_context;
-		Socket server(io_context, config->read->GetInteger("server", "port", 10201));
+		Socket server(io_context, config->read->GetInteger("login", "port", 10201));
 		io_context.run();
 	}
 	catch (std::exception& e) {

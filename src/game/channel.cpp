@@ -237,10 +237,12 @@ void Channel::sys_send(Packet& packet) {
 }
 
 void Channel::sys_verify_pc(pc* pc) {
+	if (pc == nullptr)
+		return throw ChannelNotFound();
+
 	auto it = std::find(pc_list.begin(), pc_list.end(), pc);
 
-	if (it == pc_list.end() && pc == nullptr) {
-		throw ChannelNotFound();
-		return;
+	if (it == pc_list.end()) {
+		return throw ChannelNotFound();
 	}
 }

@@ -2,12 +2,13 @@
 #include "account.h"
 #include "channel.h"
 #include "shop.h"
-#include "../common/packet.h"
-#include "../common/asio.hpp"
 #include "item.h"
+#include "mail.h"
 
 #include "Poco/Data/ODBC/ODBCException.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
+#include "../common/packet.h"
+#include "../common/asio.hpp"
 
 pc::pc(int con_id, Session *session) : connection_id_(con_id), session_(session), inventory(new Inventory()), account_id_(0) {}
 
@@ -81,6 +82,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 			break;
 		case packet::pc_open_cardpack:
 			pc_opencardpack(this);
+			break;
+		case packet::pc_loadmail_:
+			pc_loadmail(this);
 			break;
 		default:
 			break;

@@ -87,5 +87,8 @@ enum packet {
 	pc_open_cardpack = 202, 
 
 	pc_buyitem = 29,
-	pc_enter_shop = 320
+	pc_enter_shop = 320,
+
+	/* mail system */
+	pc_loadmail_ = 0x143
 };

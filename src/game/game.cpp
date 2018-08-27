@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
 		shop = new ShopSystem();
 
 		boost::asio::io_context io_context;
-		Socket server(io_context, config->read->GetInteger("server", "port", 10201));
+		Socket server(io_context, config->read->GetInteger("game", "port", 20201));
 		io_context.run();
 	}
 	catch (std::exception& e) {
