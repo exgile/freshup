@@ -5,8 +5,6 @@
 #include "../common/packet.h"
 #include "../common/db.h"
 
-using namespace Poco::Data::Keywords;
-
 void pc_loadmail(pc* pc) {
 	int page_select = pc->read<uint32>();
 	int page_total = 0;
@@ -26,7 +24,7 @@ void pc_loadmail(pc* pc) {
 		<< "typeid = ISNULL(D.typeid, 0), set_typeid = ISNULL(D.set_typeid, 0), amount = ISNULL(D.amount, 0), day = ISNULL(D.day, 0), ucc, "
 		<< "(CASE WHEN A.read_date IS NULL THEN 0 ELSE 1 END) AS mail_read "
 		<< "FROM mail A "
-		<< "LEFT JOIN account B ON A.account_id = B.account_id "
+		<< "LEFT JOIN account B ON A.sender = B.account_id "
 		/* item mail total */
 		<< "OUTER APPLY ( "
 		<< "SELECT item_count = COUNT(mail_id) FROM mail_item WHERE mail_id = A.mail_id AND release_date IS NULL "
@@ -68,4 +66,56 @@ void pc_loadmail(pc* pc) {
 	}
 
 	pc->send_packet(&packet);
+}
+
+void pc_readmail(pc* pc) {
+	uint32 mail_id = pc->read<uint32>();
+
+	Packet p;
+	Poco::Data::Session sess = sdb->get_session();
+
+	{
+		Poco::Data::Statement stm(sess);
+
+		stm << "SELECT A.account_id, A.mail_id, A.message, CONVERT(VARCHAR, A.reg_date) AS date, B.name FROM mail A "
+			<< "LEFT JOIN account B ON  B.account_id = A.sender "
+			<< "WHERE A.account_id = ? AND A.mail_id = ?", use(pc->account_id_), use(mail_id), now;
+
+		Poco::Data::RecordSet rs(stm);
+
+		if (rs.rowCount() <= 0) return;
+
+		p.write<uint16>(0x212);
+		p.write<uint32>(0);
+		p.write<uint32>(rs["mail_id"]);
+		p.write<std::string>(rs["name"]);
+		p.write<std::string>(rs["date"]);
+		p.write<std::string>(rs["message"]);
+		p.write<uint8>(1);
+	}
+
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT typeid, day, amount FROM mail_item WHERE mail_id = ?", use(mail_id), now;
+		Poco::Data::RecordSet rs(stm);
+		bool done = rs.moveFirst();
+
+		p.write<uint32>(rs.rowCount());
+
+		while (done) {
+			p.write<uint32>(-1);
+			p.write<uint32>(rs["typeid"]);
+			p.write<uint8>(rs["day"] > 0 ? 1 : 0);
+			p.write<uint32>(rs["amount"]);
+			p.write<uint32>(rs["day"]);
+			p.write_null(16);
+			p.write<uint32>(-1);
+			p.write<uint32>(0);
+			p.write<uint32>(0x30);
+			p.write_null(10);
+			done = rs.moveNext();
+		}
+	}
+
+	pc->send_packet(&p);
 }

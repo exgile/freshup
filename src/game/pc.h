@@ -90,5 +90,6 @@ enum packet {
 	pc_enter_shop = 320,
 
 	/* mail system */
-	pc_loadmail_ = 0x143
+	pc_loadmail_ = 0x143,
+	pc_readmail_ = 0x144
 };

@@ -12,3 +12,4 @@ struct mail_data {
 };
 
 void pc_loadmail(pc* pc);
+void pc_readmail(pc* pc);

@@ -86,6 +86,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		case packet::pc_loadmail_:
 			pc_loadmail(this);
 			break;
+		case packet::pc_readmail_:
+			pc_readmail(this);
+			break;
 		default:
 			break;
 		}
