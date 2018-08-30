@@ -137,7 +137,7 @@ void Channel::pc_send_message(pc* pc) {
 	item.type_id = 2092957703;
 
 
-	std::shared_ptr<INV_CARD> card_out = std::make_shared<INV_CARD>();
+	SP_INV_TRANSACTION card_out = std::make_shared<INV_TRANSACTION>();
 
 	pc->inventory->addCard(pc, &item, false, false, &card_out);
 

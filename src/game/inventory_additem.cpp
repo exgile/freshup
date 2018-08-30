@@ -94,7 +94,7 @@ char Inventory::addUse(pc* pc, struct item* item, bool transaction, bool from_sh
 	return ADDITEM_SUCCESS;
 }
 
-char Inventory::addCard(pc* pc, struct item* item, bool transaction, bool from_shop, std::shared_ptr<INV_CARD>* card_out) {
+char Inventory::addCard(pc* pc, struct item* item, bool transaction, bool from_shop, SP_INV_TRANSACTION* ptran) {
 	assert(pc);
 	assert(item);
 
@@ -107,34 +107,38 @@ char Inventory::addCard(pc* pc, struct item* item, bool transaction, bool from_s
 	});
 
 	// if card is still existed 
-	if (find_card != card_.end()) {
-		old_amount = (*find_card)->amount;
-		/* plus amount */
-		(*find_card)->amount += item->amount;
-		(*find_card)->sync = true;
+	{
+		if (find_card != card_.end()) {
+			old_amount = (*find_card)->amount;
+			/* plus amount */
+			(*find_card)->amount += item->amount;
+			(*find_card)->sync = true;
 
-		if (transaction) add_transaction(item->item_type, (*find_card), old_amount);
-		if (from_shop) show_buyitem(pc, (*find_card));
-		if (card_out) card_out->reset(new INV_CARD(**find_card));
-		return ADDITEM_SUCCESS;
+			if (transaction) add_transaction(item->item_type, (*find_card), old_amount);
+			if (from_shop) show_buyitem(pc, (*find_card));
+			if (ptran) ptran->reset(new INV_TRANSACTION(*add_transaction(item->item_type, (*find_card), old_amount, false)));
+			return ADDITEM_SUCCESS;
+		}
 	}
 
 	// Create new one
-	Poco::Data::Session sess = sdb->get_session();
-	sess << "INSERT INTO card(account_id, typeid, amount) VALUES(?, ?, ?)", use(pc->account_id_), use(item->type_id), use(item->amount), now;
-	sess << "SELECT @@IDENTITY", into(last_id), now;
+	{
+		Poco::Data::Session sess = sdb->get_session();
+		sess << "INSERT INTO card(account_id, typeid, amount) VALUES(?, ?, ?)", use(pc->account_id_), use(item->type_id), use(item->amount), now;
+		sess << "SELECT @@IDENTITY", into(last_id), now;
 
-	// Push item to vector
-	std::shared_ptr<INV_CARD> new_item = std::make_shared<INV_CARD>();
-	new_item->id = last_id;
-	new_item->card_typeid = item->type_id;
-	new_item->amount = item->amount;
-	card_.push_back(new_item);
+		// Push item to vector
+		std::shared_ptr<INV_CARD> new_item = std::make_shared<INV_CARD>();
+		new_item->id = last_id;
+		new_item->card_typeid = item->type_id;
+		new_item->amount = item->amount;
+		card_.push_back(new_item);
 
-	if (transaction) add_transaction(item->item_type, new_item, 0);  
-	if (from_shop) show_buyitem(pc, new_item);
-	if (card_out) card_out->reset(new INV_CARD(*new_item));
-	return ADDITEM_SUCCESS;
+		if (transaction) add_transaction(item->item_type, new_item, 0);
+		if (from_shop) show_buyitem(pc, new_item);
+		if (ptran) ptran->reset(new INV_TRANSACTION(*add_transaction(item->item_type, new_item, old_amount, false)));
+		return ADDITEM_SUCCESS;
+	}
 }
 
 void Inventory::show_buyitem(pc* pc, std::shared_ptr<INV_ITEM> const& item) {

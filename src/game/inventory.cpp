@@ -86,33 +86,36 @@ char Inventory::checkitem(pc* pc, uint32 id, uint32 amount) {
 	return CHECKITEM_FAIL;
 }
 
-void Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CHAR> const& char_) {
+SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CHAR> const& char_, bool toVector) {
 	assert(char_);
-	std::shared_ptr<INV_TRANSACTION> tran(new INV_TRANSACTION());
+	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
 	tran->item_id = char_->id;
 	tran->item_typeid = char_->char_typeid;
 	tran->old_amount = tran->new_amount = 1;
-	transaction_.push_back(tran);
+	if (toVector) transaction_.push_back(tran);
+	return tran;
 }
 
-void Inventory::add_transaction(uint8 types, std::shared_ptr<INV_ITEM> const& item, uint32 old_amount) {
+SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_ITEM> const& item, uint32 old_amount, bool toVector) {
 	assert(item);
-	std::shared_ptr<INV_TRANSACTION> tran(new INV_TRANSACTION());
+	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
 	tran->item_typeid = item->item_typeid;
 	tran->item_id = item->id;
 	tran->old_amount = old_amount;
 	tran->new_amount = item->c0;
-	transaction_.push_back(tran);
+	if (toVector) transaction_.push_back(tran);
+	return tran;
 }
 
-void Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CARD> const& card, uint32 old_amount) {
+SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CARD> const& card, uint32 old_amount, bool toVector) {
 	assert(card);
-	std::shared_ptr<INV_TRANSACTION> tran(new INV_TRANSACTION());
+	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
 	tran->item_typeid = card->card_typeid;
 	tran->item_id = card->id;
 	tran->old_amount = old_amount;
 	tran->new_amount = card->amount;
-	transaction_.push_back(tran);
+	if (toVector) transaction_.push_back(tran);
+	return tran;
 }
 
 void Inventory::load_character(pc* pc) {

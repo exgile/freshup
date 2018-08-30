@@ -156,19 +156,29 @@ struct PC_EQUIPMENT {
 	uint32 poster2;
 };
 
+typedef std::shared_ptr<INV_TRANSACTION>					SP_INV_TRANSACTION;
+typedef std::vector<std::shared_ptr<INV_ITEM>>				PC_ITEM_CONTAINER;
+typedef std::vector<std::shared_ptr<INV_CLUB_DATA>>			PC_CLUBSET_CONTAINER;
+typedef std::vector<std::unique_ptr<INV_MASCOT>>			PC_MASCOT_CONTAINER;
+typedef std::vector<std::shared_ptr<INV_CARD>>				PC_CARD_CONTAINER;
+typedef std::vector<std::unique_ptr<INV_CARD_CHAR_EQUIP>>	PC_CARDEQUIP_CONTAINER;
+typedef std::vector<std::shared_ptr<INV_CHAR>>				PC_CHARACTER_CONTAINER;
+typedef std::vector<std::shared_ptr<INV_CHAR_EQUIP>>		PC_CHARACTEREQUIP_CONTAINER;
+typedef std::vector<std::shared_ptr<INV_TRANSACTION>>		PC_TRANSACTION_CONTAINER;
+
 class Inventory {
 private:
 	void show_buyitem(pc* pc, std::shared_ptr<INV_ITEM> const& item);
 	void show_buyitem(pc* pc, std::shared_ptr<INV_CARD> const& card);
 public:
-	std::vector<std::shared_ptr<INV_ITEM>> item_;
-	std::vector<std::shared_ptr<INV_CLUB_DATA>> club_;	
-	std::vector<std::unique_ptr<INV_MASCOT>> mascot;
-	std::vector<std::shared_ptr<INV_CARD>> card_;
-	std::vector<std::unique_ptr<INV_CARD_CHAR_EQUIP>> card_equipment;
-	std::vector<std::shared_ptr<INV_CHAR>> character_;
-	std::vector<std::shared_ptr<INV_CHAR_EQUIP>> character_equip_;
-	std::vector<std::shared_ptr<INV_TRANSACTION>> transaction_;
+	PC_ITEM_CONTAINER item_;
+	PC_CLUBSET_CONTAINER club_;
+	PC_MASCOT_CONTAINER mascot;
+	PC_CARD_CONTAINER card_;
+	PC_CARDEQUIP_CONTAINER card_equipment;
+	PC_CHARACTER_CONTAINER character_;
+	PC_CHARACTEREQUIP_CONTAINER character_equip_;
+	PC_TRANSACTION_CONTAINER transaction_;
 	PC_EQUIPMENT equipment;
 
 	uint32 sys_cal_hour_left(std::shared_ptr<INV_ITEM> const& item);
@@ -180,15 +190,15 @@ public:
 	char additem(pc* pc, struct item* item, bool transaction, bool from_shop = false);
 	char addChar(pc* pc, struct item* item, bool transaction, bool from_shop);
 	char addUse(pc* pc, struct item* item, bool transaction, bool from_shop);
-	char addCard(pc* pc, struct item* item, bool transaction, bool from_shop, std::shared_ptr<INV_CARD>* card_out = nullptr);
+	char addCard(pc* pc, struct item* item, bool transaction, bool from_shop, SP_INV_TRANSACTION* ptran = nullptr);
 
 	char delitem(pc* pc, uint32 item_typeid, uint32 amount, bool transaction, uint8 type_num = 2);
 	char deluse(pc* pc, uint32 item_typeid, uint32 amount, bool transaction, uint8 type_num);
 	char delcard(pc* pc, uint32 item_typeid, uint32 amount, bool transaction, uint8 type_num, std::shared_ptr<INV_CARD>* card_out = nullptr);
 
-	void add_transaction(uint8 types, std::shared_ptr<INV_CHAR> const& char_); /* char */
-	void add_transaction(uint8 types, std::shared_ptr<INV_ITEM> const& item_, uint32 old_amount); /* item */
-	void add_transaction(uint8 types, std::shared_ptr<INV_CARD> const& card, uint32 old_amount); /* card */
+	SP_INV_TRANSACTION add_transaction(uint8 types, std::shared_ptr<INV_CHAR> const& char_, bool toVector = true); /* character */
+	SP_INV_TRANSACTION add_transaction(uint8 types, std::shared_ptr<INV_ITEM> const& item_, uint32 old_amount, bool toVector = true); /* item */
+	SP_INV_TRANSACTION add_transaction(uint8 types, std::shared_ptr<INV_CARD> const& card, uint32 old_amount, bool toVector = true); /* card */
 
 	void load_character(pc* pc);
 	void send_char(pc* pc);

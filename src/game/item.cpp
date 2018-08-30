@@ -38,13 +38,13 @@ void pc_opencardpack(pc* pc) {
 		item item;
 		item.type_id = pack_data[i];
 		item.amount = 1;
-		std::shared_ptr<INV_CARD> card_ret = std::make_shared<INV_CARD>();
-		pc->inventory->addCard(pc, &item, false, false, &card_ret);
+		SP_INV_TRANSACTION tran_ret = std::make_shared<INV_TRANSACTION>();
+		pc->inventory->addCard(pc, &item, false, false, &tran_ret);
 
-		packet.write<uint32>(card_ret->id);
-		packet.write<uint32>(card_ret->card_typeid);
+		packet.write<uint32>(tran_ret->item_id);
+		packet.write<uint32>(tran_ret->item_typeid);
 		packet.write_null(0xc);
-		packet.write<uint32>(card_ret->amount);
+		packet.write<uint32>(tran_ret->new_amount);
 		packet.write_null(0x20);
 		packet.write<uint16>(1);
 		packet.write<uint32>(1);
