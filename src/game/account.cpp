@@ -43,7 +43,7 @@ void account::pc_login(pc* pc) {
 		pc->disconnect();
 		return;
 	}
-
+	
 	pc->login_key = login_key;
 	pc->game_key = game_key;
 	pc->account_id_ = rs["account_id"];
