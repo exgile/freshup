@@ -144,7 +144,7 @@ struct INV_CARD_CHAR_EQUIP {
 	bool sync = false;
 };
 
-struct PC_Equipment {
+struct PC_EQUIPMENT {
 	uint32 caddie_id;
 	uint32 char_id;
 	uint32 club_id;
@@ -179,7 +179,7 @@ public:
 	PC_CHARACTER_CONTAINER character_;
 	PC_CHARACTEREQUIP_CONTAINER character_equip_;
 	PC_TRANSACTION_CONTAINER transaction_;
-	PC_Equipment equipment;
+	PC_EQUIPMENT equipment;
 
 	uint32 sys_cal_hour_left(std::shared_ptr<INV_ITEM> const& item);
 	bool sys_is_rent(uint8 rent_flag);
@@ -212,38 +212,4 @@ public:
 
 	void load_equipment(pc* pc);
 	void send_equipment(pc* pc);
-};
-
-/* new implement */
-
-struct Item {
-	uint32 id;
-	uint32 item_typeid;
-	uint16 c0, c1, c2, c3, c4 = 0;
-	Poco::DateTime create_date;
-	Poco::DateTime end_date;
-	uint8 flag;
-	uint8 type;
-
-	std::string ucc_string = "";
-	std::string ucc_key = "";
-	uint8 ucc_state = 0;
-	uint32 ucc_copy_count = 0;
-	std::string ucc_drawer = "";
-
-	uint8 hair_colour = 0; // character
-
-	std::string message = ""; // mascot
-
-	bool valid = true;
-	bool sync = false;
-};
-
-struct PC_Warehouse {
-	std::vector<std::shared_ptr<Item>> inventory_;
-	std::shared_ptr<PC_Equipment> equipment_;
-	
-	void pc_load_data(pc* pc);
-
-	PC_Warehouse();
 };
