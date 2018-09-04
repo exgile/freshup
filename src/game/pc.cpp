@@ -10,7 +10,11 @@
 #include "../common/packet.h"
 #include "../common/asio.hpp"
 
-pc::pc(int con_id, Session *session) : connection_id_(con_id), session_(session), inventory(new Inventory()), account_id_(0) {}
+pc::pc(int con_id, Session *session) :
+	connection_id_(con_id), session_(session),
+	inventory(new Inventory()), account_id_(0),
+	warehouse(std::make_shared<PC_Warehouse>())
+{}
 
 pc::~pc() { 
 

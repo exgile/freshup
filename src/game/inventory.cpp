@@ -202,7 +202,8 @@ void Inventory::load_item(pc* pc) {
 void Inventory::load_club_data(pc* pc) {
 	Poco::Data::Session sess = sdb->get_session();
 	Poco::Data::Statement stm(sess);
-	stm << "SELECT * FROM club_data WHERE account_id = ?", use(pc->account_id_), now;
+	stm << "SELECT A.* FROM club_data A "
+		<< "INNER JOIN inventory B ON B.id = A.item_id AND B.account_id = ? AND B.valid = 1", use(pc->account_id_), now;
 	Poco::Data::RecordSet rs(stm);
 
 	bool done = rs.moveFirst();
@@ -418,4 +419,391 @@ void Inventory::send_item(pc* pc) {
 	};
 
 	pc->send_packet(&packet);
+}
+
+/* new warehouse implement */
+PC_Warehouse::PC_Warehouse() :
+	equipment_(std::make_shared<PC_Equipment>()) {}
+
+void PC_Warehouse::pc_load_data(pc* pc) {
+	Poco::Data::Session sess = sdb->get_session();
+
+	/* Load char data from sql */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM char WHERE account_id = ?", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		if (rs.rowCount() <= 0) {
+			pc->disconnect();
+			return;
+		}
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Item> item = std::make_shared<Item>();
+			item->id = rs["char_id"];
+			item->item_typeid = rs["char_typeid"];
+			item->hair_colour = rs["hair_color"];
+			item->c0 = rs["c0"];
+			item->c1 = rs["c1"];
+			item->c2 = rs["c2"];
+			item->c3 = rs["c3"];
+			item->c4 = rs["c4"];
+			item->flag = rs["flag"];
+			inventory_.push_back(item);
+			done = rs.moveNext();
+		}
+	}
+
+	/* load char equipment */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM char_equip WHERE account_id = ?", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Char_Equip> char_eqp = std::make_shared<Char_Equip>();
+			char_eqp->char_id = rs["char_id"];
+			char_eqp->item_id = rs["item_id"];
+			char_eqp->item_typeid = rs["item_typeid"];
+			char_eqp->num = rs["num"];
+			char_equip_.push_back(char_eqp);
+			done = rs.moveNext();
+		}
+	}
+
+	/* Load item data from sql */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM inventory WHERE account_id = ? AND valid = 1", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Item> item = std::make_shared<Item>();
+			item->id = rs["id"];
+			item->item_typeid = rs["typeid"];
+			item->c0 = rs["c0"];
+			item->c1 = rs["c1"];
+			item->c2 = rs["c2"];
+			item->c3 = rs["c3"];
+			item->c4 = rs["c4"];
+			item->flag = rs["flag"];
+			item->type = rs["item_type"];
+			item->create_date = (Poco::DateTime)rs["reg_date"];
+			item->end_date = (Poco::DateTime)rs["end_date"];
+			inventory_.push_back(item);
+			done = rs.moveNext();
+		}
+	}
+
+	/* Load ClubSet data from sql */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT A.* FROM club_data A "
+			<< "INNER JOIN inventory B ON B.id = A.item_id AND B.account_id = ? AND B.valid = 1", use(pc->account_id_), now;
+
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Club_Data> club = std::make_shared<Club_Data>();
+			club->item_id = rs["item_id"];
+			club->c0 = rs["c0"];
+			club->c1 = rs["c1"];
+			club->c2 = rs["c2"];
+			club->c3 = rs["c3"];
+			club->c4 = rs["c4"];
+			club->point = rs["point"];
+			club->work_count = rs["work_count"];
+			club->cancel_count = rs["cancel_count"];
+			club->point_total = rs["point_total"];
+			club->pang_total = rs["pang_total"];
+			club_data_.push_back(club);
+			done = rs.moveNext();
+		}
+	}
+
+	/* Load card from sql */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM card WHERE account_id = ? AND valid = 1", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+		while (done) {
+			std::shared_ptr<Item> item = std::make_shared<Item>();
+			item->id = rs["id"];
+			item->item_typeid = rs["typeid"];
+			item->c0 = rs["amount"];
+			inventory_.push_back(item);
+			done = rs.moveNext();
+		}
+	}
+
+	/* Load pc equipment */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM equipment WHERE account_id = ?", use(pc->account_id_), now;
+
+		Poco::Data::RecordSet rs(stm);
+
+		if (rs.rowCount() > 0) {
+			equipment_->caddie_id = rs["caddie_id"];
+			equipment_->club_id = rs["club_id"];
+			equipment_->char_id = rs["character_id"];
+			equipment_->ball_id = rs["ball_typeid"];
+			equipment_->item_slot[0] = rs["item_slot_1"];
+			equipment_->item_slot[1] = rs["item_slot_2"];
+			equipment_->item_slot[2] = rs["item_slot_3"];
+			equipment_->item_slot[3] = rs["item_slot_4"];
+			equipment_->item_slot[4] = rs["item_slot_5"];
+			equipment_->item_slot[5] = rs["item_slot_6"];
+			equipment_->item_slot[6] = rs["item_slot_7"];
+			equipment_->item_slot[7] = rs["item_slot_8"];
+			equipment_->item_slot[8] = rs["item_slot_9"];
+			equipment_->item_slot[9] = rs["item_slot_10"];
+			equipment_->mascot_id = rs["mascot_id"];
+		}
+	}
+}
+
+int PC_Warehouse::item_count(inventory_type type_name) {
+	int count = 0;
+
+	switch (type_name) {
+	case IV_CHAR:
+		for (auto &item : inventory_) {
+			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
+				count += 1;
+			}
+		}
+		break;
+	case IV_ALLITEM:
+		for (auto &item : inventory_) {
+			uint8 item_type = utils::itemdb_type(item->item_typeid);
+			if (item_type == ITEMDB_PART
+				|| item_type == ITEMDB_CLUB
+				|| item_type == ITEMDB_BALL
+				|| item_type == ITEMDB_USE
+				|| item_type == ITEMDB_SKIN
+				|| item_type == ITEMDB_AUX)
+			{
+				count += 1;
+			}
+		}
+		break;
+	case IV_CARD:
+		for (auto &item : inventory_) {
+			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CARD) {
+				count += 1;
+			}
+		}
+		break;
+	}
+
+	return count;
+}
+
+uint16 PC_Warehouse::get_time_left(std::shared_ptr<Item> const& item) {
+	if (pc_item_isrent(item->flag)) {
+		return static_cast<uint32>((item->end_date.timestamp().epochTime() - item->create_date.timestamp().epochTime()) / (3600));
+	}
+	return 0;
+}
+
+void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
+
+	Packet p;
+	int count = 0;
+
+	switch (type_name) {
+	case IV_CHAR:
+	/* New Scope */
+	{
+		count = item_count(IV_CHAR);
+		p.write<uint16>(0x70);
+		p.write<uint16>(count);
+		p.write<uint16>(count);
+
+		for (auto &item : inventory_) {
+			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
+				p.write<uint32>(item->item_typeid);
+				p.write<uint32>(item->id);
+				p.write<uint16>(item->hair_colour);
+				p.write<uint16>(item->flag);
+
+				/* char equipment */
+				for (int i = 1; i <= 24; ++i) {
+					auto eqp = std::find_if(char_equip_.begin(), char_equip_.end(), [&i](std::shared_ptr<Char_Equip> const& c_eqp) {
+						return c_eqp->num == i;
+					});
+
+					if (eqp != char_equip_.end()) {
+						p.write<uint32>((*eqp)->item_typeid);
+						p.write<uint32>((*eqp)->item_id);
+					}
+				}
+
+				p.write_null(0xd8);
+				p.write<uint32>(0); // left ring
+				p.write<uint32>(0); // right ring
+				p.write_null(12); // ??
+				p.write<uint32>(0); // cutin index
+				p.write_null(12); // ??
+				p.write<uint8>((uint8)item->c0);
+				p.write<uint8>((uint8)item->c1);
+				p.write<uint8>((uint8)item->c2);
+				p.write<uint8>((uint8)item->c3);
+				p.write<uint8>((uint8)item->c4);
+				p.write<uint8>(0); // mastery point
+				p.write_null(3);
+				p.write_null(40); // card data
+				p.write<uint32>(0);
+				p.write<uint32>(0);
+			}
+		}
+	}
+	/* End Scope */
+	break;
+	case IV_ALLITEM:
+	/* New Scope */
+	{
+		count = item_count(IV_ALLITEM);
+		p.write<uint16>(0x73);
+		p.write<uint16>(count);
+		p.write<uint16>(count);
+
+		for (auto &item : inventory_) {
+			uint8 item_type = utils::itemdb_type(item->item_typeid);
+			if (item_type == ITEMDB_PART
+				|| item_type == ITEMDB_CLUB
+				|| item_type == ITEMDB_BALL
+				|| item_type == ITEMDB_USE
+				|| item_type == ITEMDB_SKIN
+				|| item_type == ITEMDB_AUX)
+			{
+				p.write<uint32>(item->id);
+				p.write<uint32>(item->item_typeid);
+				p.write<uint32>(get_time_left(item));
+				p.write<uint16>(item->c0);
+				p.write<uint16>(item->c1);
+				p.write<uint16>(item->c2);
+				p.write<uint16>(item->c3);
+				p.write<uint16>(item->c4);
+				p.write_null(1);
+				p.write<uint8>(item->flag);
+
+				p.write<uint32>(pc_item_isrent(item->flag) ? (uint32)item->create_date.timestamp().epochTime() : 0);
+				p.write<uint32>(0);
+				p.write<uint32>(pc_item_isrent(item->flag) ? (uint32)item->end_date.timestamp().epochTime() : 0);
+				p.write_null(4);
+				p.write<uint8>(2);
+				p.write_null(16); // ucc name
+				p.write_null(25);
+				p.write_null(9); //ucc unique
+				p.write<uint8>(0); // ucc status
+				p.write<uint16>(0); // copy count
+				p.write_null(16); // drawer
+				p.write_null(60);
+
+				if (item_type == ITEMDB_CLUB) {
+					// club status
+					auto club_data = std::find_if(club_data_.begin(), club_data_.end(), [&item](std::shared_ptr<Club_Data> const& cd) {
+						return cd->item_id == item->id;
+					});
+
+					bool valid = club_data != club_data_.end();
+					p.write<uint16>(valid ? (*club_data)->c0 : 0);
+					p.write<uint16>(valid ? (*club_data)->c1 : 0);
+					p.write<uint16>(valid ? (*club_data)->c2 : 0);
+					p.write<uint16>(valid ? (*club_data)->c3 : 0);
+					p.write<uint16>(valid ? (*club_data)->c4 : 0);
+					p.write<uint32>(valid ? (*club_data)->point : 0);
+					p.write<uint32>(valid ? (*club_data)->cancel_count : 0);
+					p.write<uint32>(valid ? (*club_data)->work_count : 0);
+				}
+				else {
+					p.write_null(22);
+				}
+
+				p.write<uint32>(0);
+			}
+		}
+	}
+	/* End Scope */
+	break;
+	case IV_CARD:
+	/* New Scope */
+	{
+		count = item_count(IV_CARD);
+		p.write<uint16>(0x138);
+		p.write<uint32>(0);
+		p.write<uint16>(count);
+
+		for (auto &item : inventory_) {
+			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CARD) {
+				p.write<uint32>(item->id);
+				p.write<uint32>(item->item_typeid);
+				p.write_null(12);
+				p.write<uint32>(item->c0);
+				p.write_null(0x20);
+				p.write<uint16>(1);
+			}
+		}
+	}
+	/* End Scope */
+	break;
+	case IV_EQUIPMENT:
+	/* New Scope */
+	{
+		p.write<uint16>(0x72);
+		p.write<uint32>(equipment_->caddie_id);
+		p.write<uint32>(equipment_->char_id);
+		p.write<uint32>(equipment_->club_id);
+		p.write<uint32>(equipment_->ball_id);
+		p.write<uint32>(equipment_->item_slot[0]);
+		p.write<uint32>(equipment_->item_slot[1]);
+		p.write<uint32>(equipment_->item_slot[2]);
+		p.write<uint32>(equipment_->item_slot[3]);
+		p.write<uint32>(equipment_->item_slot[4]);
+		p.write<uint32>(equipment_->item_slot[5]);
+		p.write<uint32>(equipment_->item_slot[6]);
+		p.write<uint32>(equipment_->item_slot[7]);
+		p.write<uint32>(equipment_->item_slot[8]);
+		p.write<uint32>(equipment_->item_slot[9]);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0); // title index
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0);
+		p.write<uint32>(0); // title typeid
+		p.write<uint32>(equipment_->mascot_id);
+		p.write<uint32>(0); // poster1
+		p.write<uint32>(0); // poster 2
+	}
+	/* End Scope */
+	break;
+	}
+
+	pc->send_packet(&p);
+}
+
+char PC_Warehouse::additem(pc* pc, item* item, bool transaction, bool from_shop) {
+	assert(pc && item);
+
+	auto item = std::find_if(inventory_.begin(), inventory_.end(), []() {
+	});
 }

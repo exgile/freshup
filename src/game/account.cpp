@@ -56,16 +56,12 @@ void account::pc_login(pc* pc) {
 	sys_send_pc_data(pc);
 	channel_manager->send_channel(pc);
 
-	pc->inventory->load_character(pc);
-	pc->inventory->load_item(pc);
-	pc->inventory->load_club_data(pc);
-	pc->inventory->load_equipment(pc);
-	pc->inventory->load_card(pc);
 
-	pc->inventory->send_char(pc);
-	pc->inventory->send_item(pc);
-	pc->inventory->send_equipment(pc);
-	pc->inventory->send_card(pc);
+	pc->warehouse->pc_load_data(pc);
+	pc->warehouse->pc_send_data(pc, IV_CHAR);
+	pc->warehouse->pc_send_data(pc, IV_ALLITEM);
+	pc->warehouse->pc_send_data(pc, IV_CARD);
+	pc->warehouse->pc_send_data(pc, IV_EQUIPMENT);
 
 	// temporarily sync money
 	pc->sync_money();

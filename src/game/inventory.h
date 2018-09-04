@@ -8,6 +8,7 @@
 #include "itemdb.h"
 
 #define MAX_AMOUNT_ITEM 30000
+#define pc_item_isrent(flag) ( (flag == ITEMDB_PERIOD) || (flag == ITEMDB_SKIN_PERIOD) || (flag == ITEMDB_PART_RENT) )
 
 class pc;
 
@@ -33,6 +34,14 @@ enum {
 	DELITEM_AMOUNT_NOTENOUGHT,
 	DELITEM_ITEM_NOTFOUND,
 	DELITEM_ERROR
+};
+
+enum inventory_type {
+	IV_CHAR,
+	IV_ALLITEM,
+	IV_CADDIE,
+	IV_CARD,
+	IV_EQUIPMENT
 };
 
 enum find_by {
@@ -144,7 +153,7 @@ struct INV_CARD_CHAR_EQUIP {
 	bool sync = false;
 };
 
-struct PC_EQUIPMENT {
+struct PC_Equipment {
 	uint32 caddie_id;
 	uint32 char_id;
 	uint32 club_id;
@@ -179,7 +188,7 @@ public:
 	PC_CHARACTER_CONTAINER character_;
 	PC_CHARACTEREQUIP_CONTAINER character_equip_;
 	PC_TRANSACTION_CONTAINER transaction_;
-	PC_EQUIPMENT equipment;
+	PC_Equipment equipment;
 
 	uint32 sys_cal_hour_left(std::shared_ptr<INV_ITEM> const& item);
 	bool sys_is_rent(uint8 rent_flag);
@@ -212,4 +221,64 @@ public:
 
 	void load_equipment(pc* pc);
 	void send_equipment(pc* pc);
+};
+
+/* New implement */
+
+struct Item {
+	uint32 id;
+	uint32 item_typeid;
+	uint16 c0, c1, c2, c3, c4 = 0;
+	Poco::DateTime create_date;
+	Poco::DateTime end_date;
+	uint8 flag;
+	uint8 type;
+
+	std::string ucc_string = "";
+	std::string ucc_key = "";
+	uint8 ucc_state = 0;
+	uint32 ucc_copy_count = 0;
+	std::string ucc_drawer = "";
+
+	uint8 hair_colour = 0; // character
+
+	std::string message = ""; // mascot
+
+	bool valid = true;
+	bool sync = false;
+};
+
+struct Club_Data {
+	uint32 item_id = 0;
+	uint8 c0, c1, c2, c3, c4 = 0;
+	uint32 point = 0;
+	uint32 work_count = 0;
+	uint32 cancel_count = 0;
+	uint32 point_total = 0;
+	uint32 pang_total = 0;
+};
+
+struct Char_Equip {
+	uint32 item_id;
+	uint32 item_typeid;
+	uint32 char_id;
+	uint8 num;
+};
+
+struct PC_Warehouse {
+private:
+	std::vector<std::shared_ptr<Item>> inventory_;
+	std::vector<std::shared_ptr<Club_Data>> club_data_;
+	std::vector<std::shared_ptr<Char_Equip>> char_equip_;
+	std::shared_ptr<PC_Equipment> equipment_;
+
+	int item_count(inventory_type type_name);
+	uint16 get_time_left(std::shared_ptr<Item> const& item); // as hour
+public:
+	void pc_load_data(pc* pc);
+	void pc_send_data(pc* pc, inventory_type type_name);
+
+	char additem(pc* pc, item* item, bool transaction = true, bool from_shop = false);
+
+	PC_Warehouse();
 };

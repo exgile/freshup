@@ -42,7 +42,7 @@ enum item_type_name {
 	ITEMDB_SKIN = 14,
 	ITEMDB_MASCOT = 16,
 	ITEMDB_AUX = 28,
-	ITEMDB_CARD = 31
+	ITEMDB_CARD = 31,
 };
 
 struct itemdb_base {

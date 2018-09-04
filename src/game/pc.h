@@ -18,6 +18,7 @@ class pc {
 		int account_id_;
 
 		Inventory* inventory;
+		std::shared_ptr<PC_Warehouse> warehouse;
 
 		std::string login_key;
 		std::string game_key;
