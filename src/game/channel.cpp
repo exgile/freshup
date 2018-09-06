@@ -131,7 +131,7 @@ void Channel::pc_quit_lobby(pc* pc) {
 void Channel::pc_send_message(pc* pc) {
 	struct item item;
 	item.amount = 17;
-	item.expire_day = 0;
+	item.day_amount = 0;
 	item.flag = 0;
 	item.item_type = 2;
 	item.type_id = 2092957703;

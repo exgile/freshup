@@ -801,9 +801,131 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	pc->send_packet(&p);
 }
 
-char PC_Warehouse::additem(pc* pc, item* item, bool transaction, bool from_shop) {
+char PC_Warehouse::additem(pc* pc, item* item, bool transaction, bool from_shop, bool test_additem) {
 	assert(pc && item);
 
-	auto item = std::find_if(inventory_.begin(), inventory_.end(), []() {
+	auto item_find = std::find_if(inventory_.begin(), inventory_.end(), [&item](std::shared_ptr<Item> const& _item) {
+		return _item->item_typeid == item->type_id;
 	});
+
+	switch (utils::itemdb_type(item->item_type)) {
+	case ITEMDB_CHAR: 
+
+	{
+		if (item_find != inventory_.end()) return ADDITEM_DUPLICATED;
+		if (test_additem) return ADDITEM_SUCCESS;
+
+		// Insert character to database
+		Poco::Data::Session sess = sdb->get_session();
+		Poco::Data::Statement stm(sess);
+		stm << "EXEC sys_make_char ?, ?", use(pc->account_id_), use(item->type_id), now;
+		Poco::Data::RecordSet rs(stm);
+
+		int ret_id = rs["char_ret_id"];
+		assert(ret_id > 0);
+		auto find_char = std::find_if(inventory_.begin(), inventory_.end(), [&ret_id](std::shared_ptr<Item> const& _item) {
+			return _item->id == ret_id;
+		});
+
+		if (from_shop) show_shopbuyitem(pc, *find_char, item);
+		if (transaction) put_transaction(*find_char);
+	}
+
+		break;
+
+	default:
+		throw ItemTypeNotFound();
+		return ADDITEM_INVALID;
+		break;
+	}
+
+	return ADDITEM_SUCCESS;
+}
+
+void PC_Warehouse::reload_char_equipment(pc* pc) {
+	Poco::Data::Session sess = sdb->get_session();
+	
+	// Update equipment first
+	{
+		for (auto &char_eqp : char_equip_) {
+			sess << "UPDATE char_equip SET item_id = ?, item_typeid = ? WHERE account_id = ? AND char_id = ? AND num = ?",
+				use(char_eqp->item_id), use(char_eqp->item_typeid), use(pc->account_id_), use(char_eqp->char_id), use(char_eqp->num), now;
+		}
+
+		for (auto &u_char : inventory_) {
+			if (utils::itemdb_type(u_char->item_typeid) == ITEMDB_CHAR) {
+				sess << "UPDATE char SET hair_color = ?, c0 = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ? WHERE char_id = ? AND account_id = ?",
+					use(u_char->hair_colour), use(u_char->c0), use(u_char->c1), use(u_char->c2), use(u_char->c3), use(u_char->c4),
+					use(u_char->id), use(pc->account_id_), now;
+			}
+		}
+	}
+
+	// clear char equipment
+	char_equip_.clear();
+
+	/* Load char data from sql */
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM char WHERE account_id = ?", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Item> item = std::make_shared<Item>();
+			item->id = rs["char_id"];
+			item->item_typeid = rs["char_typeid"];
+			item->hair_colour = rs["hair_color"];
+			item->c0 = rs["c0"];
+			item->c1 = rs["c1"];
+			item->c2 = rs["c2"];
+			item->c3 = rs["c3"];
+			item->c4 = rs["c4"];
+			item->flag = rs["flag"];
+			inventory_.push_back(item);
+			done = rs.moveNext();
+		}
+	}
+
+	/* Load char equipment from database */ 
+	{
+		Poco::Data::Statement stm(sess);
+		stm << "SELECT * FROM char_equip WHERE account_id = ?", use(pc->account_id_), now;
+		Poco::Data::RecordSet rs(stm);
+
+		bool done = rs.moveFirst();
+
+		while (done) {
+			std::shared_ptr<Char_Equip> char_eqp = std::make_shared<Char_Equip>();
+			char_eqp->char_id = rs["char_id"];
+			char_eqp->item_id = rs["item_id"];
+			char_eqp->item_typeid = rs["item_typeid"];
+			char_eqp->num = rs["num"];
+			char_equip_.push_back(char_eqp);
+			done = rs.moveNext();
+		}
+	}
+}
+
+void PC_Warehouse::show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item, item* item) {
+	assert(pc && item && in_item);
+
+	Packet p;
+	p.write<uint16>(0xaa);
+	p.write<uint16>(1); // item count
+	p.write<uint32>(in_item->item_typeid);
+	p.write<uint32>(in_item->id);
+	p.write<uint16>(item->day_amount);
+	p.write<uint8>(item->flag);
+	p.write<uint16>(in_item->c0);
+	p.write_datetime(in_item->end_date);
+	p.write_string(in_item->ucc_string, 9);
+	p.write <uint64>(10000000); // pang
+	p.write <uint64>(10000000); // cookie
+	pc->send_packet(&p);
+}
+
+void PC_Warehouse::put_transaction(std::shared_ptr<Item> const& item) {
+
 }

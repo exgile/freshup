@@ -50,11 +50,12 @@ enum find_by {
 };
 
 struct item {
-	uint8 item_type;
+	uint8 item_type = 2;
 	uint32 type_id;
 	uint16 amount;
-	uint16 expire_day;
+	uint16 day_amount = 0;
 	uint8 flag;
+	std::string ucc_string = "";
 };
 
 struct INV_TRANSACTION {
@@ -272,13 +273,16 @@ private:
 	std::vector<std::shared_ptr<Char_Equip>> char_equip_;
 	std::shared_ptr<PC_Equipment> equipment_;
 
+	void show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item, item* item);
+	void put_transaction(std::shared_ptr<Item> const& item);
+	void reload_char_equipment(pc* pc);
 	int item_count(inventory_type type_name);
 	uint16 get_time_left(std::shared_ptr<Item> const& item); // as hour
 public:
 	void pc_load_data(pc* pc);
 	void pc_send_data(pc* pc, inventory_type type_name);
 
-	char additem(pc* pc, item* item, bool transaction = true, bool from_shop = false);
+	char additem(pc* pc, item* item, bool transaction = true, bool from_shop = false, bool test_additem = false);
 
 	PC_Warehouse();
 };

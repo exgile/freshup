@@ -1,6 +1,7 @@
 #pragma once
 #include <iostream>
 #include "consts.h"
+#include <Poco/DateTime.h>
 
 typedef std::basic_ofstream<unsigned char, std::char_traits<unsigned char> > uofstream;
 
@@ -17,7 +18,8 @@ public:
 	void write_hex(const unsigned char* hex, int size);
 	void write_null(size_t amount);
 	void write_string(std::string str, std::size_t slen);
-	void write_time();
+	void write_datetime();
+	void write_datetime(Poco::DateTime const& datetime);
 	void SaveToFile(std::string fileName);
 	void reset();
 	unsigned char *get_buffer();

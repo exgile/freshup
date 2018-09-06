@@ -20,7 +20,7 @@ void Packet::write_hex(const unsigned char* hex, int size){
 	}
 }
 
-void Packet::write_time() {
+void Packet::write_datetime() {
 	if (buffer_) {
 		Poco::LocalDateTime now;
 
@@ -38,6 +38,27 @@ void Packet::write_time() {
 		*(unsigned __int16*)(buffer_ + length_ + 10) = now.minute();
 		*(unsigned __int16*)(buffer_ + length_ + 12) = now.second();
 		*(unsigned __int16*)(buffer_ + length_ + 14) = now.millisecond();
+
+		length_ += 16;
+	}
+}
+
+void Packet::write_datetime(Poco::DateTime const& datetime) {
+	if (buffer_) {
+		if (length_ + 16 >= buffer_size_) {
+			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + 16);
+			buffer_size_ += 16;
+		}
+
+
+		*(unsigned __int16*)(buffer_ + length_) = datetime.year();
+		*(unsigned __int16*)(buffer_ + length_ + 2) = datetime.month();
+		*(unsigned __int16*)(buffer_ + length_ + 4) = datetime.dayOfWeek();
+		*(unsigned __int16*)(buffer_ + length_ + 6) = datetime.day();
+		*(unsigned __int16*)(buffer_ + length_ + 8) = datetime.hour();
+		*(unsigned __int16*)(buffer_ + length_ + 10) = datetime.minute();
+		*(unsigned __int16*)(buffer_ + length_ + 12) = datetime.second();
+		*(unsigned __int16*)(buffer_ + length_ + 14) = datetime.millisecond();
 
 		length_ += 16;
 	}

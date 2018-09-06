@@ -91,7 +91,7 @@ void account::sys_send_pc_data(pc* pc) {
 	packet.write<uint32>(pc->account_id_);
 	packet.write_null(239); // TODO: statistic
 	packet.write_hex(&pc_data2[0], sizeof(pc_data2));
-	packet.write_time();
+	packet.write_datetime();
 	packet.write_hex(&pc_data3[0], sizeof(pc_data3));
 	packet.write_null(8);
 	packet.write<uint8>(1);
