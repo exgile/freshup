@@ -1,5 +1,6 @@
 #pragma once
 #include "typedef.h"
+#include "utils.h"
 
 #define MAX_BUY 10
 
@@ -36,6 +37,7 @@ enum {
 	BUY_RENT = 1
 };
 
+STRUCT_PACK(
 struct buy_data {
 	uint32 un1;
 	uint32 item_typeid;
@@ -44,6 +46,6 @@ struct buy_data {
 	uint32 amount;
 	uint32 pang_price;
 	uint32 cookie_price;
-};
+});
 
 extern ShopSystem* shop;

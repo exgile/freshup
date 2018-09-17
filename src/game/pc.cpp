@@ -72,6 +72,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		case packet::pc_select_channel:
 			channel_manager->pc_select_channel(this);
 			break;
+		case packet::pc_create_game_:
+			channel_->pc_create_game(this);
+			break;
 		case packet::pc_enter_lobby_:
 			channel_->pc_enter_lobby(this);
 			break;

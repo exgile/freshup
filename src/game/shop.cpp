@@ -32,7 +32,9 @@ void ShopSystem::pc_buyitem_normal(pc* pc) {
 	buy_data buy[MAX_BUY];
 
 	for (int i = 0; i < total; ++i) {
-		buy[i] = pc->read_struct<buy_data>();
+		pc->read((char*)&buy[i].un1, sizeof buy_data);
+
+		printf("typeid = %d \n amount = %d \n price = %d \n", buy[i].item_typeid, buy[i].amount, buy[i].pang_price);
 	}
 
 	for (int i = 0; i < total; ++i) {

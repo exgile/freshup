@@ -3,8 +3,8 @@
 
 unique_id* unique_s = nullptr;
 
-unique_id::unique_id() {
-	for (int i = MAX_PLAYER; i >= 1; --i) {
+unique_id::unique_id(int max) {
+	for (int i = max; i >= 1; --i) {
 		vector_int.push_back(i);
 	}
 }

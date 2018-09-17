@@ -6,6 +6,7 @@
 
 class Packet;
 class Channel;
+class game;
 
 class pc {
 	public:
@@ -27,12 +28,13 @@ class pc {
 		int sex_;
 		int capability_ = 0;
 
-		int test = 0;
+		int test = 1;
 		// temporarily sync money (pang, cookie)
 		void sync_money();
 
 		Channel* channel_ = nullptr;
 		bool channel_in_ = false;
+		game* game = nullptr;
 		__int16 game_id = -1;
 
 		pc(int con_id, Session *session);
@@ -45,14 +47,10 @@ class pc {
 		void handle_packet(unsigned short bytes_recv);
 		
 		template<typename TYPE> TYPE read() {
-			if (recv_length_ <= recv_pos_)
-				return 0;
-
-			if (sizeof(TYPE) > (recv_length_ - recv_pos_))
-				return 0;
-
-			TYPE val = *(TYPE *)(session_->get_receive_buffer() + recv_pos_);
-			recv_pos_ += sizeof(TYPE);
+			if ((recv_length_ - recv_pos_) < sizeof TYPE) throw ReadPacketError();
+			TYPE val;
+			memcpy(&val, (session_->get_receive_buffer() + recv_pos_), sizeof TYPE);
+			recv_pos_ += sizeof TYPE;
 			return val;
 		}
 
@@ -60,10 +58,10 @@ class pc {
 			return read<signed char>() != 0;
 		}
 
-		template<class T> T read_struct() {
-			T val = *(T *)(session_->get_receive_buffer() + recv_pos_);
-			recv_pos_ += sizeof(T);
-			return val;
+		void read(char* data, std::size_t size) {
+			if ((recv_length_ - recv_pos_) < size) throw ReadPacketError();
+			memcpy(data, (session_->get_receive_buffer() + recv_pos_), size);
+			recv_pos_ += size;
 		}
 
 		template<> std::string read<std::string>() {
@@ -83,6 +81,7 @@ enum packet {
 	pc_login = 2,
 	pc_send_message = 3,
 	pc_select_channel = 4,
+	pc_create_game_ = 8,
 	pc_enter_lobby_ = 129,
 	pc_leave_lobby_ = 130,
 	pc_open_cardpack = 202, 

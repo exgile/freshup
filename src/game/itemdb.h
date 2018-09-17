@@ -45,6 +45,9 @@ enum item_type_name {
 	ITEMDB_CARD = 31,
 };
 
+// We use this pragma because, We'd like to align the memory of the struct
+#pragma pack(push, 1)
+
 struct itemdb_base {
 	uint32 enable;
 	uint32 item_typeid;
@@ -151,6 +154,8 @@ struct magicbox {
 	char datestart[16];
 	char dateend[16];
 };
+
+#pragma pack(pop)
 
 class ItemDB {
 private:

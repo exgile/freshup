@@ -9,7 +9,7 @@ private:
 
 public:
 	// class constructor
-	unique_id();
+	unique_id(int max);
 
 	int get();
 	void store(int con_id);

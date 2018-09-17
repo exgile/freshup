@@ -3,9 +3,25 @@
 #include <vector>
 #include <memory>
 #include "typedef.h"
+#include "utils.h"
+
+#include "../common/unique.h"
 
 class pc;
 class Packet;
+class game;
+
+STRUCT_PACK(
+struct gamedata {
+	uint8 un1;
+	uint32 vs_time;
+	uint32 match_time;
+	uint8 max_player;
+	uint8 game_type;
+	uint8 hole_total;
+	uint8 map;
+	uint8 mode;
+});
 
 class Channel {
 public:
@@ -13,6 +29,9 @@ public:
 	std::string name;
 	uint16 maxplayer;
 	std::vector<pc*> pc_list;
+
+	std::shared_ptr<unique_id> room_id;
+	std::vector<game*> game_list;
 
 	uint16 pc_count() { return (uint16)pc_list.size(); }
 	
@@ -24,11 +43,15 @@ public:
 	void sys_send_leave_lobby(pc* pc);
 	void sys_send(Packet& packet);
 	void sys_verify_pc(pc* pc);
+	void sys_verfiy_game(game* game);
 
 	void pc_enter_lobby(pc* pc);
 	void pc_leave_lobby(pc* pc);
 	void pc_quit_lobby(pc* pc);
 	void pc_send_message(pc* pc);
+	void pc_create_game(pc* pc);
+
+	Channel();
 };
 
 class ChannelManager {

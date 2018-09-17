@@ -40,7 +40,7 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, signal_handler);
 
 		// Initializing
-		unique_s = new unique_id();
+		unique_s = new unique_id(10000);
 		sdb = new db();
 		crypt = new Crypto();
 		config = new Config();

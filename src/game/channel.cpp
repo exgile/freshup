@@ -6,16 +6,15 @@
 ChannelManager* channel_manager = nullptr;
 
 ChannelManager::ChannelManager() {
-	/* Create Channel Lists */
 	for (uint8 i = 1; i <= 4; ++i) {
-		Channel* ch_data(new Channel());
-		ch_data->id = i;
-		ch_data->name = "Free#" + std::to_string(i);
-		ch_data->maxplayer = 255;
+		Channel* c(new Channel());
+		c->id = i;
+		c->name = "Free#" + std::to_string(i);
+		c->maxplayer = 255;
 		/* Show to console */
-		spdlog::get("console")->info("{}. {} MaxPlayer: {}", i, ch_data->name, ch_data->maxplayer);
+		spdlog::get("console")->info("{}. {} MaxPlayer: {}", i, c->name, c->maxplayer);
 		/* Put to the vector */
-		channel_list.push_back(ch_data);
+		channel_list.push_back(c);
 	}
 }
 
@@ -84,7 +83,9 @@ void ChannelManager::send_success(pc* pc) {
 	pc->send_packet(&packet);
 }
 
-/*************************************************************** END OF CHANNEL CLASS *******************************************************************/
+/* Channel */
+
+Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) {}
 
 void Channel::pc_enter_lobby(pc* pc) {
 	sys_verify_pc(pc);
@@ -98,6 +99,17 @@ void Channel::pc_enter_lobby(pc* pc) {
 	sys_send_pc_list(pc);
 	sys_send_this_pc(pc, pc_send_type::pc_show_lobby);
 	sys_send_enter_lobby(pc);
+}
+
+void Channel::pc_create_game(pc* pc) {
+	std::shared_ptr<gamedata> data(new gamedata());
+	pc->read((char*)&data->un1, sizeof gamedata);
+	printf("vs = %d | match = %d | hole total = %d | max player %d \n", data->vs_time, data->match_time, data->hole_total, data->max_player);
+
+	Packet p;
+	p.write<uint16>(0x49);
+	p.write<uint8>(7);
+	pc->send_packet(&p);
 }
 
 void Channel::pc_leave_lobby(pc* pc) {
@@ -244,5 +256,16 @@ void Channel::sys_verify_pc(pc* pc) {
 
 	if (it == pc_list.end()) {
 		return throw ChannelNotFound();
+	}
+}
+
+void Channel::sys_verfiy_game(game* game) {
+	if (game == nullptr)
+		return throw GameNotFoundOnChannel();
+
+	auto it = std::find(game_list.begin(), game_list.end(), game);
+
+	if (it == game_list.end()) {
+		return throw GameNotFoundOnChannel();
 	}
 }

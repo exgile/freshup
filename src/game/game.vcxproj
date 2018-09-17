@@ -123,6 +123,7 @@
     <ClInclude Include="channel.h" />
     <ClInclude Include="clif.h" />
     <ClInclude Include="exception.h" />
+    <ClInclude Include="gameplay.h" />
     <ClInclude Include="inventory.h" />
     <ClInclude Include="item.h" />
     <ClInclude Include="itemdb.h" />
@@ -143,6 +144,7 @@
     <ClCompile Include="channel.cpp" />
     <ClCompile Include="clif.cpp" />
     <ClCompile Include="game.cpp" />
+    <ClCompile Include="gameplay.cpp" />
     <ClCompile Include="inventory.cpp" />
     <ClCompile Include="inventory_additem.cpp" />
     <ClCompile Include="inventory_delitem.cpp" />
