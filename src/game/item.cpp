@@ -1,7 +1,9 @@
 #include "item.h"
+
 #include "../common/packet.h"
+#include "../common/typedef.h"
+
 #include "itemdb.h"
-#include "typedef.h"
 #include "pc.h"
 
 void pc_opencardpack(pc* pc) {

@@ -34,8 +34,12 @@ class pc {
 
 		Channel* channel_ = nullptr;
 		bool channel_in_ = false;
+
 		game* game = nullptr;
 		__int16 game_id = -1;
+		uint8 game_role = 1;
+		uint8 game_slot;
+		bool game_ready = false;
 
 		pc(int con_id, Session *session);
 		~pc(); 
@@ -45,7 +49,11 @@ class pc {
 		void send_packet(Packet *packet);
 		void send_packet_undecrypt(Packet *packet);
 		void handle_packet(unsigned short bytes_recv);
-		
+		void gamedata(Packet* p, bool with_equip = false);
+
+		void change_equipment();
+		 
+
 		template<typename TYPE> TYPE read() {
 			if ((recv_length_ - recv_pos_) < sizeof TYPE) throw ReadPacketError();
 			TYPE val;
@@ -82,6 +90,7 @@ enum packet {
 	pc_send_message = 3,
 	pc_select_channel = 4,
 	pc_create_game_ = 8,
+	pc_change_equipment = 12,
 	pc_enter_lobby_ = 129,
 	pc_leave_lobby_ = 130,
 	pc_open_cardpack = 202, 
@@ -92,4 +101,12 @@ enum packet {
 	/* mail system */
 	pc_loadmail_ = 0x143,
 	pc_readmail_ = 0x144
+};
+
+enum {
+	e_caddie = 1,
+	e_club = 3,
+	e_char = 4,
+	e_mascot = 5,
+	e_start = 7
 };

@@ -25,8 +25,7 @@ public:
 	unsigned char *get_buffer();
 	size_t get_length();
 
-	template<typename TYPE>
-	void write(TYPE value){
+	template<typename TYPE> void write(TYPE value){
 		if (length_ + sizeof(TYPE) >= buffer_size_){
 			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + kIncreaseSize);
 			buffer_size_ += kIncreaseSize;
@@ -36,8 +35,17 @@ public:
 		length_ += sizeof(TYPE);
 	}
 
-	template<>
-	void write<bool>(bool value)
+	void write(char* data, std::size_t size) {
+		if (length_ + size >= buffer_size_) {
+			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + kIncreaseSize);
+			buffer_size_ += kIncreaseSize;
+		}
+
+		memcpy(buffer_ + length_, data, size);
+		length_ += size;
+	}
+
+	template<> void write<bool>(bool value)
 	{
 		if (length_ + sizeof(bool) >= buffer_size_){
 			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + kIncreaseSize);
@@ -48,8 +56,7 @@ public:
 		++length_;
 	}
 
-	template<>
-	void write<std::string>(std::string str){
+	template<> void write<std::string>(std::string str){
 		size_t len = str.length();
 		if (length_ + len >= buffer_size_){
 			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + kIncreaseSize);

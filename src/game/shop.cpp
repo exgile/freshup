@@ -51,16 +51,17 @@ void ShopSystem::pc_buyitem_normal(pc* pc) {
 
 		// sum pang and cookie
 		std::pair<char, uint32> price_data = itemdb->get_price(buy[i].item_typeid);
-		switch (price_data.first) {
-		case TYPE_PANG:
-		case TYPE_PANG2:
+
+		if (price_data.first == TYPE_PANG || price_data.first == TYPE_PANG2) {
 			buy[i].amount = itemdb->get_amount(buy[i].item_typeid) * buy[i].amount; // get real amount of the item : type pang
 			pang_amount += price_data.second * buy[i].amount;
-			break;
-		case TYPE_COOKIE:
+		}
+		else if (price_data.first == TYPE_COOKIE) {
 			buy[i].amount = itemdb->get_amount(buy[i].item_typeid); // cookie amount should be static
 			cookie_amount += price_data.second;
-			break;
+		}
+		else {
+			throw "Price type is invalid.";
 		}
 
 		printf("pang total %d, cookie total %d , amount is =%d\n", pang_amount, cookie_amount, itemdb->get_amount(buy[i].item_typeid));

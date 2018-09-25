@@ -1,6 +1,10 @@
 #include "channel.h"
+#include "gameplay.h"
 #include "pc.h"
+
 #include "../common/packet.h"
+#include "../common/timer.h"
+
 #include "spdlog/sinks/stdout_color_sinks.h"
 
 ChannelManager* channel_manager = nullptr;
@@ -85,7 +89,19 @@ void ChannelManager::send_success(pc* pc) {
 
 /* Channel */
 
-Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) {}
+Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) {
+	/*timer.every(std::chrono::milliseconds(1), [this]() {
+		std::cout << "== " << name << std::endl;
+	});*/
+
+	timer->add(1000, true, [this](bool abort) mutable {
+		printf("name => %s\n", this->name.c_str());
+	});
+}
+
+void Channel::game_destroy(void) {
+
+}
 
 void Channel::pc_enter_lobby(pc* pc) {
 	sys_verify_pc(pc);
@@ -102,9 +118,13 @@ void Channel::pc_enter_lobby(pc* pc) {
 }
 
 void Channel::pc_create_game(pc* pc) {
-	std::shared_ptr<gamedata> data(new gamedata());
+	std::shared_ptr<gamedata> data(new gamedata()); 
 	pc->read((char*)&data->un1, sizeof gamedata);
 	printf("vs = %d | match = %d | hole total = %d | max player %d \n", data->vs_time, data->match_time, data->hole_total, data->max_player);
+
+	game* game = new game_chatroom(data, 1, "test", "");
+	game->addmaster(pc);
+	return;
 
 	Packet p;
 	p.write<uint16>(0x49);

@@ -2,9 +2,9 @@
 
 #include <vector>
 #include <memory>
-#include "typedef.h"
-#include "utils.h"
 
+#include "../common/typedef.h"
+#include "../common/utils.h"
 #include "../common/unique.h"
 
 class pc;
@@ -50,6 +50,8 @@ public:
 	void pc_quit_lobby(pc* pc);
 	void pc_send_message(pc* pc);
 	void pc_create_game(pc* pc);
+
+	void game_destroy();
 
 	Channel();
 };

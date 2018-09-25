@@ -2,7 +2,7 @@
 
 Crypto* crypt = nullptr;
 
-Crypto::Crypto(){
+Crypto::Crypto() {
 	hInst = LoadLibraryA("Project1.dll");
 
 	if (!hInst) {

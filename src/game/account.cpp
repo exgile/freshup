@@ -1,16 +1,18 @@
 #include "account.h"
 #include "pc.h"
 #include "clif.h"
-#include "typedef.h"
-#include "utils.h"
 #include "pc_manager.h"
 #include "reader.h"
 #include "channel.h"
 #include "struct.h"
 #include "static.h"
+#include "inventory.h"
+
 #include "../common/db.h"
 #include "../common/packet.h"
-#include "inventory.h"
+#include "../common/utils.h"
+#include "../common/typedef.h"
+
 
 using namespace Poco::Data::Keywords;
 using namespace Poco::Data;

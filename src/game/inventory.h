@@ -4,13 +4,15 @@
 #include <vector>
 #include <Poco/LocalDateTime.h>
 #include <Poco/DateTime.h>
-#include "typedef.h"
 #include "itemdb.h"
+
+#include "../common/typedef.h"
 
 #define MAX_AMOUNT_ITEM 30000
 #define pc_item_isrent(flag) ( (flag == ITEMDB_PERIOD) || (flag == ITEMDB_SKIN_PERIOD) || (flag == ITEMDB_PART_RENT) )
 
 class pc;
+class Packet;
 
 enum e_checkitem_result {
 	CHECKITEM_PASS,
@@ -245,6 +247,9 @@ struct Item {
 
 	std::string message = ""; // mascot
 
+	uint32 equip_typeid[24];
+	uint32 equip_index[24];
+
 	bool valid = true;
 	bool sync = false;
 };
@@ -259,18 +264,10 @@ struct Club_Data {
 	uint32 pang_total = 0;
 };
 
-struct Char_Equip {
-	uint32 item_id;
-	uint32 item_typeid;
-	uint32 char_id;
-	uint8 num;
-};
-
 struct PC_Warehouse {
 private:
 	std::vector<std::shared_ptr<Item>> inventory_;
 	std::vector<std::shared_ptr<Club_Data>> club_data_;
-	std::vector<std::shared_ptr<Char_Equip>> char_equip_;
 	std::shared_ptr<PC_Equipment> equipment_;
 
 	void show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item, item* item);
@@ -281,6 +278,8 @@ private:
 public:
 	void pc_load_data(pc* pc);
 	void pc_send_data(pc* pc, inventory_type type_name);
+	void write_current_char(Packet* p);
+	uint32 char_typeid_equiped();
 
 	char additem(pc* pc, item* item, bool transaction = true, bool from_shop = false, bool test_additem = false);
 

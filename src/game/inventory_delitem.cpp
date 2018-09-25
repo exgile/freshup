@@ -1,6 +1,6 @@
 #include "inventory.h"
 #include "pc.h"
-#include "utils.h"
+#include "../common/utils.h"
 
 char Inventory::delitem(pc* pc, uint32 item_typeid, uint32 amount, bool transaction, uint8 type_num) {
 	uint32 item_type = utils::itemdb_type(item_typeid);

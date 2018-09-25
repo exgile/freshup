@@ -136,8 +136,6 @@
     <ClInclude Include="socket.h" />
     <ClInclude Include="static.h" />
     <ClInclude Include="struct.h" />
-    <ClInclude Include="typedef.h" />
-    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="account.cpp" />
@@ -145,6 +143,7 @@
     <ClCompile Include="clif.cpp" />
     <ClCompile Include="game.cpp" />
     <ClCompile Include="gameplay.cpp" />
+    <ClCompile Include="gameplay_chatroom.cpp" />
     <ClCompile Include="inventory.cpp" />
     <ClCompile Include="inventory_additem.cpp" />
     <ClCompile Include="inventory_delitem.cpp" />
@@ -152,12 +151,12 @@
     <ClCompile Include="itemdb.cpp" />
     <ClCompile Include="mail.cpp" />
     <ClCompile Include="pc.cpp" />
+    <ClCompile Include="pc_game.cpp" />
     <ClCompile Include="pc_manager.cpp" />
     <ClCompile Include="reader.cpp" />
     <ClCompile Include="session.cpp" />
     <ClCompile Include="shop.cpp" />
     <ClCompile Include="socket.cpp" />
-    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

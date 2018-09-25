@@ -75,6 +75,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		case packet::pc_create_game_:
 			channel_->pc_create_game(this);
 			break;
+		case packet::pc_change_equipment:
+			change_equipment();
+			break;
 		case packet::pc_enter_lobby_:
 			channel_->pc_enter_lobby(this);
 			break;
@@ -116,6 +119,51 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		disconnect();
 	}
 
+}
+
+void pc::gamedata(Packet* p, bool with_equip) {
+	p->write<uint32>(connection_id_);
+	p->write_string(name_, 0x10);
+	p->write_null(6);
+	p->write_string("", 0x15); // guild name
+	p->write<uint8>(game_slot);
+	p->write<uint32>(0);
+	p->write<uint32>(0); // title typeid
+	p->write<uint32>(warehouse->char_typeid_equiped());
+	p->write_null(0x14); // ?
+	p->write<uint32>(0); // title typeid
+	p->write<uint8>(game_role);
+	p->write<uint8>( game_ready ? 2 : 0 );
+	p->write<uint8>(31); // level
+	p->write<uint8>(0); // gm?
+	p->write<uint8>(10);
+	p->write<uint32>(0); // guild id
+	p->write_string("guildmark", 9);
+	p->write<uint32>(0);
+	p->write<uint32>(account_id_);
+	
+	p->write<uint32>(0); // animation
+	p->write<uint16>(41485);
+	p->write<uint32>(0); // posture?
+	p->write<double>(0); // x
+	p->write<double>(0); // y
+	p->write<double>(0); // z
+
+	p->write<uint32>(0);
+	p->write_string("store name", 0x1f);
+	p->write_null(0x21);
+	p->write<uint32>(0); // mascot typeid
+	p->write<uint8>(0); // pang mas
+	p->write<uint8>(0); // nitro pang
+	p->write<uint32>(0);
+	p->write_string(username_ + "@NT", 18);
+	p->write_null(0x6e);
+	p->write<uint32>(0); // maybe trophy ?
+	p->write<uint32>(66); // ??
+
+	if (with_equip) {
+		warehouse->write_current_char(p);
+	}
 }
 
 void pc::sync_money() {

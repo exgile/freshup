@@ -1,6 +1,6 @@
 #include "inventory.h"
 #include "pc.h"
-#include "utils.h"
+#include "../common/utils.h"
 #include "../common/packet.h"
 #include "../common/db.h"
 

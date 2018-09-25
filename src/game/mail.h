@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-#include "typedef.h"
+#include "../common/typedef.h"
 
 class pc;
 

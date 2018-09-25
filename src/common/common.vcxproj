@@ -129,10 +129,11 @@
     <ClInclude Include="ini.h" />
     <ClInclude Include="ini_reader.h" />
     <ClInclude Include="packet.h" />
-    <ClInclude Include="queue.h" />
     <ClInclude Include="Semaphore.h" />
-    <ClInclude Include="TimerQueue.h" />
+    <ClInclude Include="timer.h" />
+    <ClInclude Include="typedef.h" />
     <ClInclude Include="unique.h" />
+    <ClInclude Include="utils.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="crypto.cpp" />
@@ -140,8 +141,9 @@
     <ClCompile Include="ini.c" />
     <ClCompile Include="ini_reader.cpp" />
     <ClCompile Include="packet.cpp" />
-    <ClCompile Include="queue.cpp" />
+    <ClCompile Include="timer.cpp" />
     <ClCompile Include="unique.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

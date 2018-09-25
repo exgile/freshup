@@ -1,7 +1,8 @@
 #include "mail.h"
 #include "pc.h"
-#include "utils.h"
 #include "itemdb.h"
+
+#include "../common/utils.h"
 #include "../common/packet.h"
 #include "../common/db.h"
 

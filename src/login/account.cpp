@@ -1,9 +1,10 @@
 #include "account.h"
 #include "pc.h"
 #include "clif.h"
-#include "typedef.h"
-#include "utils.h"
 #include "pcs.h"
+
+#include "../common/typedef.h"
+#include "../common/utils.h"
 #include "../common/db.h"
 #include "../common/packet.h"
 

@@ -1,6 +1,6 @@
 #pragma once
-#include "typedef.h"
-#include "utils.h"
+#include "../common/typedef.h"
+#include "../common/utils.h"
 
 #define MAX_BUY 10
 

@@ -2,7 +2,8 @@
 #include "../common/unique.h"
 #include "../common/db.h"
 #include "../common/crypto.h"
-#include "../common/queue.h"
+#include "../common/timer.h"
+
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "socket.h"
 #include "clif.h"
@@ -22,11 +23,9 @@ void signal_handler(int sig) {
 	delete pc_process;
 	delete pcs;
 	delete channel_manager;
-	delete queue;
 	delete itemdb;
 	delete shop;
-
-	//system("pause");
+	delete timer;
 }
 
 int main(int argc, char *argv[]) {
@@ -40,6 +39,7 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, signal_handler);
 
 		// Initializing
+		timer = new TimerQueue();
 		unique_s = new unique_id(10000);
 		sdb = new db();
 		crypt = new Crypto();
@@ -48,7 +48,6 @@ int main(int argc, char *argv[]) {
 		pc_process = new account();
 		pcs = new pc_manager();
 		channel_manager = new ChannelManager();
-		queue = new Queue();
 		itemdb = new ItemDB();
 		shop = new ShopSystem();
 

@@ -1,9 +1,11 @@
 #include "inventory.h"
 #include "pc.h"
+
 #include "../common/packet.h"
 #include "../common/db.h"
+#include "../common/utils.h"
+
 #include "itemdb.h"
-#include "utils.h"
 
 using namespace Poco::Data::Keywords; 
 
@@ -466,12 +468,20 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Char_Equip> char_eqp = std::make_shared<Char_Equip>();
-			char_eqp->char_id = rs["char_id"];
-			char_eqp->item_id = rs["item_id"];
-			char_eqp->item_typeid = rs["item_typeid"];
-			char_eqp->num = rs["num"];
-			char_equip_.push_back(char_eqp);
+			uint32 char_id = rs["char_id"];
+			uint32 item_id = rs["item_id"];
+			uint32 item_typeid = rs["item_typeid"];
+			uint8 item_num = rs["num"];
+
+			auto char_f = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+				return item->id == char_id;
+			});
+
+			if (char_f != inventory_.end()) {
+				(*char_f)->equip_index[item_num - 1] = item_id;
+				(*char_f)->equip_typeid[item_num - 1] = item_typeid;
+			}
+
 			done = rs.moveNext();
 		}
 	}
@@ -639,16 +649,12 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 				p.write<uint16>(item->hair_colour);
 				p.write<uint16>(item->flag);
 
-				/* char equipment */
-				for (int i = 1; i <= 24; ++i) {
-					auto eqp = std::find_if(char_equip_.begin(), char_equip_.end(), [&i](std::shared_ptr<Char_Equip> const& c_eqp) {
-						return c_eqp->num == i;
-					});
-
-					if (eqp != char_equip_.end()) {
-						p.write<uint32>((*eqp)->item_typeid);
-						p.write<uint32>((*eqp)->item_id);
-					}
+				for (int i = 0; i < 24; ++i) {
+					p.write<uint32>(item->equip_typeid[i]);
+				}
+				
+				for (int i = 0; i < 24; ++i) {
+					p.write<uint32>(item->equip_index[i]);
 				}
 
 				p.write_null(0xd8);
@@ -847,22 +853,30 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 	
 	// Update equipment first
 	{
-		for (auto &char_eqp : char_equip_) {
-			sess << "UPDATE char_equip SET item_id = ?, item_typeid = ? WHERE account_id = ? AND char_id = ? AND num = ?",
-				use(char_eqp->item_id), use(char_eqp->item_typeid), use(pc->account_id_), use(char_eqp->char_id), use(char_eqp->num), now;
-		}
-
-		for (auto &u_char : inventory_) {
-			if (utils::itemdb_type(u_char->item_typeid) == ITEMDB_CHAR) {
+		for (auto &char_en : inventory_) {
+			if (utils::itemdb_type(char_en->item_typeid) == ITEMDB_CHAR) {
 				sess << "UPDATE char SET hair_color = ?, c0 = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ? WHERE char_id = ? AND account_id = ?",
-					use(u_char->hair_colour), use(u_char->c0), use(u_char->c1), use(u_char->c2), use(u_char->c3), use(u_char->c4),
-					use(u_char->id), use(pc->account_id_), now;
+					use(char_en->hair_colour), 
+					use(char_en->c0),
+					use(char_en->c1), 
+					use(char_en->c2), 
+					use(char_en->c3), 
+					use(char_en->c4),
+					use(char_en->id), 
+					use(pc->account_id_), now;
+
+				// update all char equipment
+				for (int i = 0; i < 24; ++i) {
+					sess << "UPDATE char_equip SET item_id = ?, item_typeid = ? WHERE account_id = ? AND char_id = ? AND num = ?",
+						use(char_en->equip_index[i]),
+						use(char_en->equip_typeid[i]),
+						use(pc->account_id_), 
+						use(char_en->id),
+						bind(i + 1);
+				}
 			}
 		}
 	}
-
-	// clear char equipment
-	char_equip_.clear();
 
 	/* Load char data from sql */
 	{
@@ -897,12 +911,20 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Char_Equip> char_eqp = std::make_shared<Char_Equip>();
-			char_eqp->char_id = rs["char_id"];
-			char_eqp->item_id = rs["item_id"];
-			char_eqp->item_typeid = rs["item_typeid"];
-			char_eqp->num = rs["num"];
-			char_equip_.push_back(char_eqp);
+			uint32 char_id = rs["char_id"];
+			uint32 item_id = rs["item_id"];
+			uint32 item_typeid = rs["item_typeid"];
+			uint8 item_num = rs["num"];
+
+			auto char_f = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+				return item->id == char_id;
+			});
+
+			if (char_f != inventory_.end()) {
+				(*char_f)->equip_index[item_num - 1] = item_id;
+				(*char_f)->equip_typeid[item_num - 1] = item_typeid;
+			}
+
 			done = rs.moveNext();
 		}
 	}
@@ -928,4 +950,68 @@ void PC_Warehouse::show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item
 
 void PC_Warehouse::put_transaction(std::shared_ptr<Item> const& item) {
 
+}
+
+uint32 PC_Warehouse::char_typeid_equiped() {
+	uint32 char_id = equipment_->char_id;
+
+	auto char_s = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+		return item->id == char_id;
+	});
+
+	if (char_s != inventory_.end()) {
+		return (*char_s)->item_typeid;
+	}
+
+	return 0;
+}
+
+void PC_Warehouse::write_current_char(Packet* p) {
+	uint32 char_id = equipment_->char_id;
+
+	auto char_s = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+		return item->id == char_id;
+	});
+
+	if (char_s == inventory_.end()) throw "Error cannot get char data!";
+
+	p->write<uint32>((*char_s)->item_typeid);
+	p->write<uint32>((*char_s)->id);
+	p->write<uint16>((*char_s)->hair_colour);
+	p->write<uint16>((*char_s)->flag);
+
+	for (int i = 0; i < 24; ++i) {
+		p->write<uint32>((*char_s)->equip_typeid[i]);
+	}
+
+	for (int i = 0; i < 24; ++i) {
+		p->write<uint32>((*char_s)->equip_index[i]);
+	}
+
+	p->write_null(0xd8);
+	p->write<uint32>(0); // left ring
+	p->write<uint32>(0); // right ring
+
+	p->write<uint32>(0);
+	p->write<uint32>(0);
+	p->write<uint32>(0);
+
+	p->write<uint32>(0); // cutin index
+
+	p->write<uint32>(0); 
+	p->write<uint32>(0);
+	p->write<uint32>(0);
+
+	p->write<uint8>((uint8)(*char_s)->c0); 
+	p->write<uint8>((uint8)(*char_s)->c1);
+	p->write<uint8>((uint8)(*char_s)->c2);
+	p->write<uint8>((uint8)(*char_s)->c3);
+	p->write<uint8>((uint8)(*char_s)->c4);
+	p->write<uint8>(0); // mastery point
+
+	p->write_null(3);
+
+	p->write_null(40); // card data
+	p->write<uint32>(0);
+	p->write<uint32>(0);
 }
