@@ -38,7 +38,7 @@ enum {
 };
 
 STRUCT_PACK(
-struct buy_data {
+	struct buy_data {
 	uint32 un1;
 	uint32 item_typeid;
 	uint16 total_day;

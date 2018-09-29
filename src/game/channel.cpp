@@ -9,27 +9,32 @@
 
 ChannelManager* channel_manager = nullptr;
 
-ChannelManager::ChannelManager() {
+ChannelManager::ChannelManager() 
+{
 	for (uint8 i = 1; i <= 4; ++i) {
-		Channel* c(new Channel());
-		c->id = i;
-		c->name = "Free#" + std::to_string(i);
-		c->maxplayer = 255;
+		Channel* ch(new Channel());
+		ch->id = i;
+		ch->name = "Free#" + std::to_string(i);
+		ch->maxplayer = 255;
+
 		/* Show to console */
-		spdlog::get("console")->info("{}. {} MaxPlayer: {}", i, c->name, c->maxplayer);
+		spdlog::get("console")->info("{}. {} MaxPlayer: {}", i, ch->name, ch->maxplayer);
+
 		/* Put to the vector */
-		channel_list.push_back(c);
+		channel_list.push_back(ch);
 	}
 }
 
-ChannelManager::~ChannelManager() {
-	for_each(channel_list.begin(), channel_list.end(), [](Channel* ch) -> void { delete ch; });
+ChannelManager::~ChannelManager() 
+{
+	std::for_each(channel_list.begin(), channel_list.end(), [](Channel* ch) -> void { delete ch; });
 }
 
-void ChannelManager::pc_select_channel(pc* pc) {
+void ChannelManager::pc_select_channel(pc* pc) 
+{
 	uint8 channel_id = pc->read<uint8>();
 	Channel* ch = get_channel_ById(channel_id);
-	
+
 	if (ch == nullptr) {
 		pc->disconnect();
 		return;
@@ -45,11 +50,12 @@ void ChannelManager::pc_select_channel(pc* pc) {
 	send_success(pc);
 }
 
-Channel* ChannelManager::get_channel_ById(uint8 id) {
+Channel* ChannelManager::get_channel_ById(uint8 id) 
+{
 	auto it = std::find_if(channel_list.begin(), channel_list.end(), [&id](Channel* m) {
-		return m->id == id; 
+		return m->id == id;
 	});
-	
+
 	if (it != channel_list.end()) {
 		return (*it);
 	}
@@ -57,30 +63,33 @@ Channel* ChannelManager::get_channel_ById(uint8 id) {
 	return nullptr;
 }
 
-void ChannelManager::send_channel(pc* pc){
-	Packet packet;
-	packet.write<uint16>(0x4d);
-	packet.write<uint8>((uint8)channel_list.size());
-	for (auto it : channel_list) {
-		packet.write_string(it->name, 10);
-		packet.write_null(0x36);
-		packet.write<uint16>(it->maxplayer);
-		packet.write<uint16>(it->pc_count());
-		packet.write<uint8>(it->id);
-		packet.write<uint32>(1);
-		packet.write<uint32>(0);
+void ChannelManager::send_channel(pc* pc) 
+{
+	Packet p;
+	p.write<uint16>(0x4d);
+	p.write<uint8>((uint8)channel_list.size());
+	for (auto &it : channel_list) {
+		p.write_string(it->name, 10);
+		p.write_null(0x36);
+		p.write<uint16>(it->maxplayer);
+		p.write<uint16>(it->pc_count());
+		p.write<uint8>(it->id);
+		p.write<uint32>(1);
+		p.write<uint32>(0);
 	}
-	pc->send_packet(&packet);
+	pc->send_packet(&p);
 }
 
-void ChannelManager::send_channel_full(pc* pc) {
+void ChannelManager::send_channel_full(pc* pc) 
+{
 	Packet packet;
 	packet.write<uint16>(0x4e);
 	packet.write<uint8>(2);
 	pc->send_packet(&packet);
 }
 
-void ChannelManager::send_success(pc* pc) {
+void ChannelManager::send_success(pc* pc) 
+{
 	Packet packet;
 	packet.write<uint16>(0x4e);
 	packet.write<uint8>(1);
@@ -89,21 +98,30 @@ void ChannelManager::send_success(pc* pc) {
 
 /* Channel */
 
-Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) {
-	/*timer.every(std::chrono::milliseconds(1), [this]() {
-		std::cout << "== " << name << std::endl;
-	});*/
-
-	timer->add(1000, true, [this](bool abort) mutable {
-		printf("name => %s\n", this->name.c_str());
+Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) 
+{
+	timer->add(10000, true, [this](bool abort) {
+		game_destroy();
 	});
 }
 
-void Channel::game_destroy(void) {
-
+void Channel::game_destroy(void)
+{
+	game_list.erase(
+		std::remove_if(game_list.begin(), game_list.end(), [this](game* game) {
+		if (game->valid) {
+			return false;
+		}
+		else {
+			printf("room id = %d destroyed\n", game->roomId);
+			room_id->store(game->roomId);
+			return true;
+		}
+	}), game_list.end());
 }
 
-void Channel::pc_enter_lobby(pc* pc) {
+void Channel::pc_enter_lobby(pc* pc) 
+{
 	sys_verify_pc(pc);
 
 	if (pc->channel_in_) {
@@ -113,26 +131,13 @@ void Channel::pc_enter_lobby(pc* pc) {
 	pc->channel_in_ = true;
 
 	sys_send_pc_list(pc);
-	sys_send_this_pc(pc, pc_send_type::pc_show_lobby);
+	sys_send_game_list(pc);
+	sys_pc_action(pc, lbSend);
 	sys_send_enter_lobby(pc);
 }
 
-void Channel::pc_create_game(pc* pc) {
-	std::shared_ptr<gamedata> data(new gamedata()); 
-	pc->read((char*)&data->un1, sizeof gamedata);
-	printf("vs = %d | match = %d | hole total = %d | max player %d \n", data->vs_time, data->match_time, data->hole_total, data->max_player);
-
-	game* game = new game_chatroom(data, 1, "test", "");
-	game->addmaster(pc);
-	return;
-
-	Packet p;
-	p.write<uint16>(0x49);
-	p.write<uint8>(7);
-	pc->send_packet(&p);
-}
-
-void Channel::pc_leave_lobby(pc* pc) {
+void Channel::pc_leave_lobby(pc* pc) 
+{
 	sys_verify_pc(pc);
 
 	if (!pc->channel_) {
@@ -140,11 +145,12 @@ void Channel::pc_leave_lobby(pc* pc) {
 	}
 
 	pc->channel_in_ = false;
-	sys_send_this_pc(pc, pc_send_type::pc_leave_lobby);
-	Channel::sys_send_leave_lobby(pc);
+	sys_pc_action(pc, lbLeave);
+	sys_send_leave_lobby(pc);
 }
 
-void Channel::pc_quit_lobby(pc* pc) {
+void Channel::pc_quit_lobby(pc* pc) 
+{
 	sys_verify_pc(pc);
 
 	auto it = std::find(std::begin(pc_list), std::end(pc_list), pc);
@@ -152,15 +158,16 @@ void Channel::pc_quit_lobby(pc* pc) {
 	if (it == std::end(pc_list)) {
 		return;
 	}
-	
+
 	if (pc->channel_in_) {
-		sys_send_this_pc(pc, pc_send_type::pc_leave_lobby);
+		sys_pc_action(pc, lbLeave);
 	}
 
 	pc_list.erase(it);
 }
 
-void Channel::pc_send_message(pc* pc) {
+void Channel::pc_send_message(pc* pc) 
+{
 	struct item item;
 	item.amount = 17;
 	item.day_amount = 0;
@@ -189,10 +196,52 @@ void Channel::pc_send_message(pc* pc) {
 	}
 }
 
-void Channel::sys_send_pc_list(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0x46);
-	packet.write<uint8>(4); // show player
+game* Channel::sys_getgame_byid(uint32 room_id)
+{
+	for (auto &it : game_list) {
+		if (it->roomId == room_id) {
+			return it;
+		}
+	}
+
+	return nullptr;
+}
+
+void Channel::sys_gm_command(pc* pc) {
+
+	if (pc->capability_ != 4) throw "You're not not GM!";
+
+	uint16 command = pc->read<uint16>();
+
+	switch (command) {
+	case cmdWeather:
+	{
+		uint8 weather = pc->read<uint8>();
+		if (pc->game) {
+			pc->game->sys_weather(weather);
+		}
+	}
+	break;
+	}
+}
+
+void Channel::sys_game_action(game* game, GAME_UPDATEACTION const& action) 
+{
+	sys_veriy_game(game);
+	Packet p;
+	p.write<uint16>(0x47);
+	p.write<uint8>(1);
+	p.write<uint8>((uint8)action);
+	p.write<int16>(-1);
+	game->roomdata(&p);
+	sys_send(&p);
+}
+
+void Channel::sys_send_pc_list(pc* pc) 
+{
+	Packet p;
+	p.write<uint16>(0x46);
+	p.write<uint8>(4); // show player
 
 	int c = 0;
 
@@ -202,73 +251,104 @@ void Channel::sys_send_pc_list(pc* pc) {
 		}
 	}
 
-	packet.write<uint8>(c);
+	p.write<uint8>(c);
 
 	for (auto pc : pc_list) {
 		if (pc->channel_in_) {
-			sys_get_pc_data(pc, &packet);
+			sys_get_pc_data(pc, &p);
 		}
 	}
-	pc->send_packet(&packet);
+	pc->send_packet(&p);
 }
 
-void Channel::sys_send_this_pc(pc* pc, enum pc_send_type a) {
-	Packet packet;
-	packet.write<uint16>(0x46);
-	packet.write<uint8>(a);
-	packet.write<uint8>(1); // this should always be 1
-	sys_get_pc_data(pc, &packet);
-	sys_send(packet);
+void Channel::sys_send_game_list(pc* pc)
+{
+	int16 count = 0;
+
+	for (auto &it : game_list)
+	{
+		if (it->valid)
+			count += 1;
+	}
+
+	Packet p;
+	p.write<uint16>(0x47);
+	p.write<uint16>(count);
+	p.write<int16>(-1);
+
+	for (auto &it : game_list)
+	{
+		if (it->valid)
+			it->roomdata(&p);
+	}
+
+	pc->send_packet(&p);
 }
 
-void Channel::sys_get_pc_data(pc* pc, Packet* packet) {
-	packet->write<uint32>(pc->account_id_);
-	packet->write<uint32>(pc->connection_id_);
-	packet->write<__int16>(pc->game_id);
-	packet->write_string(pc->name_, 16);
-	packet->write_null(6);
-	packet->write<uint8>(35); // level
-	packet->write<uint32>(0); // gm visible?
-	packet->write<uint32>(0); // title typeid
-	packet->write<uint32>(1000); // what?
-	packet->write<uint8>(pc->sex_);
-	packet->write<uint32>(0); // guild id
-	packet->write_string("", 9); // guild image
-	packet->write_null(3);
-	packet->write<uint8>(1); // vip?
-	packet->write_null(6);
-	packet->write_string(pc->username_ + "@NT", 18);
-	packet->write_null(0x6e);
+void Channel::sys_pc_action(pc* pc, PC_GAMEACTION const& action) 
+{
+	Packet p;
+	p.write<uint16>(0x46);
+	p.write<uint8>((uint8)action);
+	p.write<uint8>(1); // this should always be 1
+	sys_get_pc_data(pc, &p);
+	sys_send(&p);
 }
 
-void Channel::sys_send_pc_message(pc* pc, std::string& message) {
+void Channel::sys_get_pc_data(pc* pc, Packet* p) 
+{
+	p->write<uint32>(pc->account_id_);
+	p->write<uint32>(pc->connection_id_);
+	p->write<__int16>(pc->game_id);
+	p->write_string(pc->name_, 16);
+	p->write_null(6);
+	p->write<uint8>(35); // level
+	p->write<uint32>(0); // gm visible?
+	p->write<uint32>(0); // title typeid
+	p->write<uint32>(1000); // what?
+	p->write<uint8>(pc->sex_);
+	p->write<uint32>(0); // guild id
+	p->write_string("", 9); // guild image
+	p->write_null(3);
+	p->write<uint8>(1); // vip?
+	p->write_null(6);
+	p->write_string(pc->username_ + "@NT", 18);
+	p->write_null(0x6e);
+}
+
+void Channel::sys_send_pc_message(pc* pc, std::string& message) 
+{
 	Packet packet;
 	packet.write<uint16>(0x40);
 	packet.write<uint8>(pc->capability_ == 4 ? 0x80 : 0);
 	packet.write<std::string>(pc->name_);
 	packet.write<std::string>(message);
-	sys_send(packet);
+	sys_send(&packet);
 }
 
-void Channel::sys_send_enter_lobby(pc* pc) {
+void Channel::sys_send_enter_lobby(pc* pc) 
+{
 	Packet packet;
 	packet.write<uint16>(0xf5);
 	pc->send_packet(&packet);
 }
 
-void Channel::sys_send_leave_lobby(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0xf6);
-	pc->send_packet(&packet);
+void Channel::sys_send_leave_lobby(pc* pc) 
+{
+	Packet p;
+	p.write<uint16>(0xf6);
+	pc->send_packet(&p);
 }
 
-void Channel::sys_send(Packet& packet) {
+void Channel::sys_send(Packet* packet) 
+{
 	std::for_each(pc_list.begin(), pc_list.end(), [&packet](pc* pc) {
-		pc->send_packet(&packet);
+		pc->send_packet(packet);
 	});
 }
 
-void Channel::sys_verify_pc(pc* pc) {
+void Channel::sys_verify_pc(pc* pc) 
+{
 	if (pc == nullptr)
 		return throw ChannelNotFound();
 
@@ -279,7 +359,8 @@ void Channel::sys_verify_pc(pc* pc) {
 	}
 }
 
-void Channel::sys_verfiy_game(game* game) {
+void Channel::sys_veriy_game(game* game)
+{
 	if (game == nullptr)
 		return throw GameNotFoundOnChannel();
 

@@ -119,10 +119,13 @@
     <ClCompile Include="gameplay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="pc_game.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="gameplay_chatroom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pc_game.cpp">
+    <ClCompile Include="gameplay_stroke.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -144,6 +144,7 @@
     <ClCompile Include="game.cpp" />
     <ClCompile Include="gameplay.cpp" />
     <ClCompile Include="gameplay_chatroom.cpp" />
+    <ClCompile Include="gameplay_stroke.cpp" />
     <ClCompile Include="inventory.cpp" />
     <ClCompile Include="inventory_additem.cpp" />
     <ClCompile Include="inventory_delitem.cpp" />

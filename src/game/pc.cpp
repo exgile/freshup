@@ -19,6 +19,10 @@ pc::pc(int con_id, Session *session) :
 pc::~pc() { 
 
 	if (channel_) {
+		if (game != nullptr) {
+			channel_->pc_leave_game(this);
+		}
+
 		channel_->pc_quit_lobby(this);
 		channel_ = nullptr;
 	}
@@ -75,6 +79,15 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		case packet::pc_create_game_:
 			channel_->pc_create_game(this);
 			break;
+		case packet::pc_join_game:
+			channel_->pc_join_game(this);
+			break;
+		case packet::pc_leave_room:
+			channel_->pc_leave_game(this);
+			break;
+		case packet::pc_room_action:
+			pc_roomaction(this);
+			break;
 		case packet::pc_change_equipment:
 			change_equipment();
 			break;
@@ -83,6 +96,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 			break;
 		case packet::pc_leave_lobby_:
 			channel_->pc_leave_lobby(this);
+			break;
+		case packet::pc_gm_command:
+			channel_->sys_gm_command(this);
 			break;
 		case packet::pc_enter_shop:
 			shop->pc_entershop(this);
@@ -142,12 +158,12 @@ void pc::gamedata(Packet* p, bool with_equip) {
 	p->write<uint32>(0);
 	p->write<uint32>(account_id_);
 	
-	p->write<uint32>(0); // animation
+	p->write<uint32>(animate); // animation
 	p->write<uint16>(41485);
-	p->write<uint32>(0); // posture?
-	p->write<double>(0); // x
-	p->write<double>(0); // y
-	p->write<double>(0); // z
+	p->write<uint32>(posture); // posture?
+	p->write<float>(game_position.x); // x
+	p->write<float>(game_position.y); // y
+	p->write<float>(game_position.z); // z
 
 	p->write<uint32>(0);
 	p->write_string("store name", 0x1f);

@@ -4,9 +4,30 @@
 #include "inventory.h"
 #include "exception.h"
 
+#include "../common/utils.h"
+
 class Packet;
 class Channel;
 class game;
+
+
+#pragma pack(push, 1)
+struct Pos3D {
+	float x;
+	float y;
+	float z;
+	void operator+=(const Pos3D& other) {
+		x += other.x;
+		y += other.y;
+		z = other.z;
+	}
+	void init() {
+		x = 0;
+		y = 0;
+		z = 0;
+	}
+};
+#pragma pack(pop)
 
 class pc {
 	public:
@@ -40,6 +61,9 @@ class pc {
 		uint8 game_role = 1;
 		uint8 game_slot;
 		bool game_ready = false;
+		Pos3D game_position;
+		uint32 posture = 0;
+		uint32 animate = 0;
 
 		pc(int con_id, Session *session);
 		~pc(); 
@@ -90,9 +114,13 @@ enum packet {
 	pc_send_message = 3,
 	pc_select_channel = 4,
 	pc_create_game_ = 8,
+	pc_join_game = 9,
 	pc_change_equipment = 12,
+	pc_leave_room = 15,
+	pc_room_action = 99,
 	pc_enter_lobby_ = 129,
 	pc_leave_lobby_ = 130,
+	pc_gm_command = 143,
 	pc_open_cardpack = 202, 
 
 	pc_buyitem = 29,
@@ -110,3 +138,6 @@ enum {
 	e_mascot = 5,
 	e_start = 7
 };
+
+// pc game function
+void pc_roomaction(pc* pc);

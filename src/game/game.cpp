@@ -28,8 +28,13 @@ void signal_handler(int sig) {
 	delete timer;
 }
 
-int main(int argc, char *argv[]) {
+class c {
+public:
+	c() { printf("class created!");  };
+	~c() { printf("class destroyed"); };
+};
 
+int main(int argc, char *argv[]) {
 	auto console = spdlog::stdout_color_mt("console");
 	try {
 #ifdef SIGBREAK

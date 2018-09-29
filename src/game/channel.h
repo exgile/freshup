@@ -11,6 +11,27 @@ class pc;
 class Packet;
 class game;
 
+enum GAME_UPDATEACTION {
+	gCreate = 1,
+	gDestroy = 2,
+	gUpdate = 3
+};
+
+enum PC_GAMEACTION {
+	lbSend = 1,
+	lbLeave = 2,
+	lbUpdate = 3
+};
+
+enum {
+	gtStroke = 0,
+	gtChatroom = 2
+};
+
+enum {
+	cmdWeather = 15
+};
+
 STRUCT_PACK(
 struct gamedata {
 	uint8 un1;
@@ -36,20 +57,28 @@ public:
 	uint16 pc_count() { return (uint16)pc_list.size(); }
 	
 	void sys_send_pc_list(pc* pc);
-	void sys_send_this_pc(pc* pc, enum pc_send_type a);
-	void sys_get_pc_data(pc* pc, Packet* packet);
+	void sys_send_game_list(pc* pc);
+	void sys_get_pc_data(pc* pc, Packet* p);
 	void sys_send_pc_message(pc* pc, std::string& message);
 	void sys_send_enter_lobby(pc* pc);
 	void sys_send_leave_lobby(pc* pc);
-	void sys_send(Packet& packet);
+	void sys_send(Packet* packet);
 	void sys_verify_pc(pc* pc);
-	void sys_verfiy_game(game* game);
+	void sys_veriy_game(game* game);
+	game* sys_getgame_byid(uint32 room_id);
+
+	void sys_game_action(game* game, GAME_UPDATEACTION const& action);
+	void sys_pc_action(pc* pc, PC_GAMEACTION const& action);
+	void sys_gm_command(pc* pc);
 
 	void pc_enter_lobby(pc* pc);
 	void pc_leave_lobby(pc* pc);
 	void pc_quit_lobby(pc* pc);
 	void pc_send_message(pc* pc);
+
 	void pc_create_game(pc* pc);
+	void pc_join_game(pc* pc);
+	void pc_leave_game(pc* pc);
 
 	void game_destroy();
 
@@ -69,12 +98,6 @@ public:
 	void send_channel(pc* pc);
 	void send_channel_full(pc* pc);
 	void send_success(pc* pc);
-};
-
- enum pc_send_type {
-	pc_show_lobby = 1,
-	pc_leave_lobby = 2,
-	pc_update_lobby = 3
 };
 
 extern ChannelManager* channel_manager;
