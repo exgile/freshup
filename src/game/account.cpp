@@ -23,13 +23,13 @@ account::account(){}
 account::~account(){}
 
 void account::pc_login(pc* pc) {
-	std::string username = pc->read<std::string>();
-	int account_id = pc->read<int>();
-	pc->skip(6);
-	std::string login_key = pc->read<std::string>();
-	std::string game_ver = pc->read<std::string>();
-	pc->skip(8);
-	std::string game_key = pc->read<std::string>();
+	std::string username = RTSTR(pc);
+	int account_id = RTIU32(pc);
+	RSKIP(pc, 6);
+	std::string login_key = RTSTR(pc);
+	std::string game_ver = RTSTR(pc);
+	RSKIP(pc, 8);
+	std::string game_key = RTSTR(pc);
 
 	Poco::Data::Session sess = sdb->get_session();
 	Poco::Data::Statement stm(sess);
@@ -38,10 +38,10 @@ void account::pc_login(pc* pc) {
 	Poco::Data::RecordSet rs(stm);
 	
 	if (rs.rowCount() <= 0) {
-		Packet packet;
-		packet.write<uint16>(630);
-		packet.write<uint32>(300);
-		pc->send_packet(&packet);
+		Packet p;
+		WTHEAD(&p, 630);
+		WTIU32(&p, 300);
+		pc->send_packet(&p);
 		pc->disconnect();
 		return;
 	}

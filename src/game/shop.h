@@ -2,7 +2,7 @@
 #include "../common/typedef.h"
 #include "../common/utils.h"
 
-#define MAX_BUY 10
+#define MAX_ITEM_BUY 10
 
 class pc;
 

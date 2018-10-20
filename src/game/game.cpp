@@ -3,10 +3,10 @@
 #include "../common/db.h"
 #include "../common/crypto.h"
 #include "../common/timer.h"
+#include "../common/utils.h"
 
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "socket.h"
-#include "clif.h"
 #include "pc_manager.h"
 #include "reader.h"
 #include "account.h"
@@ -19,7 +19,6 @@ void signal_handler(int sig) {
 	delete sdb;
 	delete crypt;
 	delete config;
-	delete sclif;
 	delete pc_process;
 	delete pcs;
 	delete channel_manager;
@@ -28,13 +27,10 @@ void signal_handler(int sig) {
 	delete timer;
 }
 
-class c {
-public:
-	c() { printf("class created!");  };
-	~c() { printf("class destroyed"); };
-};
+#include <Poco/DateTime.h>
 
 int main(int argc, char *argv[]) {
+
 	auto console = spdlog::stdout_color_mt("console");
 	try {
 #ifdef SIGBREAK
@@ -49,7 +45,6 @@ int main(int argc, char *argv[]) {
 		sdb = new db();
 		crypt = new Crypto();
 		config = new Config();
-		sclif = new clif();
 		pc_process = new account();
 		pcs = new pc_manager();
 		channel_manager = new ChannelManager();

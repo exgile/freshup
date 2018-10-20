@@ -4,7 +4,7 @@
 #include "Poco/Data/SessionPool.h"
 #include "Poco/Data/ODBC/Connector.h"
 
-using namespace Poco::Data::Keywords;
+using namespace Poco::Data::Keywords; 
 
 class db {
 private:

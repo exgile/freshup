@@ -74,7 +74,8 @@ void Channel::pc_join_game(pc* pc) {
 		return;
 	}
 
-	if (game->password.compare(req_pwd) != 0) {
+	// if password not match or not gm
+	if ( game->password.compare(req_pwd) != 0 && pc->capability_ != 4) {
 		room_error(pc, rPwdErr);
 		return;
 	}
@@ -133,4 +134,11 @@ void pc_roomaction(pc* pc) {
 	if (pc->game == nullptr) 
 		return;
 	pc->game->pc_action(pc);
+}
+
+void game_setting(pc* pc) {
+	if (pc->game == nullptr)
+		return;
+
+	pc->game->pc_change_game_config(pc);
 }

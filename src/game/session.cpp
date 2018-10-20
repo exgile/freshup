@@ -33,8 +33,8 @@ void Session::initialise() {
 	// add to pc manager
 	pcs->pc_add(pc_);
 
-	// random key use to decrypt & encrypt packets
-	key_ = utils::random_int(1, 15);
+	// random key , uses for decrypt & encrypt packets
+	key_ = rnd_value(1, 15);
 
 	pc_->ip_ = socket_.remote_endpoint().address().to_string();
 
@@ -42,11 +42,11 @@ void Session::initialise() {
 
 	// send key to client
 	Packet p;
-	p.write<unsigned __int8>(0x00);
-	p.write<unsigned __int16>((unsigned __int16)pc_->ip_.length() + 8);
-	p.write_hex(&key_game[0], sizeof(key_game));
-	p.write<unsigned __int8>(key_); 
-	p.write<std::string>(pc_->ip_);
+	WTIU08(&p, 0x00);
+	WTIU16(&p, (uint16)pc_->ip_.length() + 8);
+	WTPHEX(&p, &key_game[0], sizeof key_game);
+	WTIU08(&p, key_);
+	WTCSTR(&p, pc_->ip_);
 	send_packet_undecrypt(&p);
 
 	read_header();

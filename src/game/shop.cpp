@@ -26,48 +26,46 @@ void ShopSystem::pc_buyitem(pc* pc) {
 }
 
 void ShopSystem::pc_buyitem_normal(pc* pc) {
-	uint16 total = pc->read<uint16>();
-	uint32 item_amount = 0, pang_amount = 0, cookie_amount = 0;
+	uint16 buy_amount = pc->read<uint16>();
+	uint32 item_amount = 0, pang_total = 0, cookie_total = 0;
 
-	buy_data buy[MAX_BUY];
+	buy_data item_buy[MAX_ITEM_BUY];
 
-	for (int i = 0; i < total; ++i) {
-		pc->read((char*)&buy[i].un1, sizeof buy_data);
-
-		printf("typeid = %d \n amount = %d \n price = %d \n", buy[i].item_typeid, buy[i].amount, buy[i].pang_price);
+	for (int i = 0; i < buy_amount; ++i) {
+		pc->read((char*)&item_buy[i].un1, sizeof buy_data);
 	}
 
-	for (int i = 0; i < total; ++i) {
+	for (int i = 0; i < buy_amount; ++i) {
 		// item exist?
-		if (!itemdb->exists(buy[i].item_typeid)) {
+		if (!itemdb->exists(item_buy[i].item_typeid)) {
 			send_msg(pc, BUY_FAIL);
 			return;
 		}
 		// item buyable?
-		else if (!itemdb->buyable(buy[i].item_typeid)) {
+		else if (!itemdb->buyable(item_buy[i].item_typeid)) {
 			send_msg(pc, CANNOT_BUY_ITEM);
 			return;
 		}
 
 		// sum pang and cookie
-		std::pair<char, uint32> price_data = itemdb->get_price(buy[i].item_typeid);
+		std::pair<char, uint32> price_data = itemdb->get_price(item_buy[i].item_typeid);
 
 		if (price_data.first == TYPE_PANG || price_data.first == TYPE_PANG2) {
-			buy[i].amount = itemdb->get_amount(buy[i].item_typeid) * buy[i].amount; // get real amount of the item : type pang
-			pang_amount += price_data.second * buy[i].amount;
+			item_buy[i].amount = itemdb->get_amount(item_buy[i].item_typeid) * item_buy[i].amount; // get real amount of the item : type pang
+			pang_total += price_data.second * item_buy[i].amount;
 		}
 		else if (price_data.first == TYPE_COOKIE) {
-			buy[i].amount = itemdb->get_amount(buy[i].item_typeid); // cookie amount should be static
-			cookie_amount += price_data.second;
+			item_buy[i].amount = itemdb->get_amount(item_buy[i].item_typeid); // Item Cookie Amount should be static
+			cookie_total += price_data.second;
 		}
 		else {
 			throw "Price type is invalid.";
 		}
 
-		printf("pang total %d, cookie total %d , amount is =%d\n", pang_amount, cookie_amount, itemdb->get_amount(buy[i].item_typeid));
+		printf("pang total %d, cookie total %d , amount is =%d\n", pang_total, cookie_total, itemdb->get_amount(item_buy[i].item_typeid));
 
 		// validate that pc can have this item
-		switch (pc->inventory->checkitem(pc, buy[i].item_typeid, buy[i].amount)) {
+		/*switch (pc->inventory->checkitem(pc, buy[i].item_typeid, buy[i].amount)) {
 		case CHECKITEM_PASS:
 			break;
 		case CHECKITEM_FAIL:
@@ -82,15 +80,15 @@ void ShopSystem::pc_buyitem_normal(pc* pc) {
 			send_msg(pc, ALREADY_HAVEITEM);
 			return;
 			break;
-		}
+		}*/
 	}
-
-	for (int i = 0; i < total; ++i) {
+	
+	/*for (int i = 0; i < buy_amount; ++i) {
 		item item;
-		item.type_id = buy[i].item_typeid;
+		item.type_id = item_buy[i].item_typeid;
 		item.amount = buy[i].amount;
 		pc->inventory->additem(pc, &item, false, true);
-	}
+	}*/
 
 	send_msg(pc, BUY_SUCCESS, true);
 }
@@ -100,14 +98,14 @@ void ShopSystem::pc_buyitem_rent(pc* pc) {
 }
 
 void ShopSystem::send_msg(pc* pc, uint32 code, bool success) {
-	Packet packet;
-	packet.write<uint16>(0x68);
-	packet.write<uint32>(code);
+	Packet p;
+	p.write<uint16>(0x68);
+	p.write<uint32>(code);
 
 	if (success) {
-		packet.write<uint64>(100000000);
-		packet.write<uint64>(100000000);
+		p.write<uint64>(100000000);
+		p.write<uint64>(100000000);
 	}
 
-	pc->send_packet(&packet);
+	pc->send_packet(&p);
 }

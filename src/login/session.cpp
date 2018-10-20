@@ -33,20 +33,20 @@ void Session::initialise() {
 	pcs->pc_add(pc_);
 
 	// random key use to decrypt & encrypt packets
-	key_ = utils::random_int(1, 15);
+	key_ = rnd_value(1, 15);
 
 	spdlog::get("console")->info("Connection {}:{} connected.", socket_.remote_endpoint().address().to_string(), socket_.remote_endpoint().port());
 
 	// send key to client
 	Packet p;
-	p.write<unsigned __int8>(0x00);
-	p.write<unsigned __int8>(0x0B);
-	p.write<unsigned __int32>(0x00);
-	p.write<unsigned __int32>(key_);
-	p.write<unsigned __int8>(0x75);
-	p.write<unsigned __int8>(0x27);
-	p.write<unsigned __int8>(0x00);
-	p.write<unsigned __int8>(0x00);
+	WTIU08(&p, 0);
+	WTIU08(&p, 0x0B);
+	WTIU32(&p, 0);
+	WTIU32(&p, key_);
+	WTIU08(&p, 0x75);
+	WTIU08(&p, 0x27);
+	WTIU08(&p, 0x0);
+	WTIU08(&p, 0x0);
 
 	send_packet_undecrypt(&p);
 

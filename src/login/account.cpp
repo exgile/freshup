@@ -17,29 +17,29 @@ account::account(){}
 account::~account(){}
 
 void account::pc_login(pc* pc) {
-	std::string username = pc->read<std::string>();
-	std::string password = pc->read<std::string>();
+	std::string username = RTSTR(pc);
+	std::string password = RTSTR(pc);
 
 	Poco::Data::Session sess = sdb->get_session();
 	Poco::Data::Statement query(sess);
 	query << "SELECT account_id, userid, user_pass, state, name, FirstSet FROM account WHERE userid = ?", use(username), now;
 	Poco::Data::RecordSet rs(query);
 
-	// user not found
-	if ( (rs.rowCount() <= 0) || (username.compare(rs["userid"].toString()) != 0) ) {
+	// USER NOT FOUND
+	if ( (rs.rowCount() <= 0) || !STRCMP(username, rs["userid"].toString())) {
 		sclif->login_msg(pc, USER_NOT_FOUND);
 		pc->disconnect();
 		return;
 	}
 	
-	// password error
-	if (password.compare(rs["user_pass"].toString()) != 0) {
+	// PASSWORD ERROR
+	if ( !STRCMP(password, rs["user_pass"].toString()) ) {
 		sclif->login_msg(pc, INCORRECT_PASSWORD);
 		pc->disconnect();
 		return;
 	}
 
-	// user banned?
+	// USER BANNED
 	if (rs["state"] > 0) {
 		sclif->login_msg(pc, USER_STATE_BAN);
 		pc->disconnect();
@@ -76,7 +76,7 @@ bool account::sys_name_validation(std::string& name) {
 }
 
 void account::pc_checkup_name(pc* pc) {
-	std::string name = pc->read<std::string>();
+	std::string name = RTSTR(pc);
 
 	if (sys_name_validation(name)) {
 		sclif->send_name_available(pc, name);
@@ -87,7 +87,7 @@ void account::pc_checkup_name(pc* pc) {
 }
 
 void account::pc_name_validation(pc* pc) {
-	std::string name = pc->read<std::string>();
+	std::string name = RTSTR(pc);
 
 	if (sys_name_validation(name)) {
 		pc->set_name(name);
@@ -99,8 +99,8 @@ void account::pc_name_validation(pc* pc) {
 }
 
 void account::pc_request_create_char(pc* pc) {
-	unsigned __int32 char_typeid = pc->read<unsigned __int32>();
-	unsigned __int16 hair_colour = pc->read<unsigned __int16>();
+	uint32 char_typeid = RTIU32(pc);
+	uint16 hair_colour = RTIU16(pc);
 
 	Poco::Data::Session sess = sdb->get_session();
 	Poco::Data::Statement stm(sess);
@@ -113,17 +113,17 @@ void account::pc_request_create_char(pc* pc) {
 		return;
 	}
 
-	Packet packet;
-	packet.write<uint16>(0x11);
-	packet.write<uint8>(0);
-	pc->send_packet(&packet);
+	Packet p;
+	WTHEAD(&p, 0x11);
+	WTIU08(&p, 0);
+	pc->send_packet(&p);
 
 	sys_send_data(pc);
 }
 
 void account::sys_send_data(pc* pc) {
-	std::string game_key = utils::random_string(7);
-	std::string login_key = utils::random_string(7);
+	std::string game_key = rnd_str(7);
+	std::string login_key = rnd_str(7);
 
 	Poco::Data::Session sess = sdb->get_session();
 	Poco::Data::Statement stm(sess);
@@ -143,9 +143,9 @@ void account::sys_send_data(pc* pc) {
 }
 
 void account::pc_request_gamekey(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(3);
-	packet.write<uint32>(0);
-	packet.write<std::string>(pc->game_key);
-	pc->send_packet(&packet);
+	Packet p;
+	WTHEAD(&p, 3);
+	WTIU32(&p, 0);
+	WTCSTR(&p, pc->game_key);
+	pc->send_packet(&p);
 }

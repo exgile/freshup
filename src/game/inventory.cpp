@@ -9,423 +9,8 @@
 
 using namespace Poco::Data::Keywords; 
 
-uint32 Inventory::sys_cal_hour_left(std::shared_ptr<INV_ITEM> const& item) {
-	if (sys_is_rent(item->flag)) {
-		return static_cast<uint32>( (item->end_date.timestamp().epochTime() - item->reg_date.timestamp().epochTime()) / (3600));
-	}
-	return 0;
-}
-
-bool Inventory::sys_is_rent(uint8 rent_flag){
-	if (rent_flag == ITEMDB_PERIOD ||
-		rent_flag == ITEMDB_SKIN_PERIOD ||
-		rent_flag == ITEMDB_PART_RENT)
-	{
-		return true;
-	}
-	return false;
-}
-
-bool Inventory::pc_item_exists(uint32 val, enum item_type_name find_type, enum find_by by_) {
-	if (find_type == ITEMDB_CHAR) {
-		auto char_ = std::find_if(character_.begin(), character_.end(), [&val, &by_](std::shared_ptr<INV_CHAR> const& charf) {
-			if (by_ == FIND_BY_ID) {
-				return charf->id == val;
-			}
-			else if (by_ == FIND_BY_TYPEID) {
-				return charf->char_typeid == val;
-			}
-			return false;
-		});
-		if (char_ == character_.end()) {
-			return false;
-		}
-		return true;
-	}
-	else if (find_type == ITEMDB_USE) {
-		auto nitem = std::find_if(item_.begin(), item_.end(), [&val, &by_](std::shared_ptr<INV_ITEM> const &itemf) {
-			if (by_ == FIND_BY_ID) {
-				return itemf->id == val && itemf->c0 > 0 && itemf->valid == 1;
-			}
-			else if (by_ == FIND_BY_TYPEID) {
-				return itemf->item_typeid == val && itemf->c0 > 0 && itemf->valid == 1;
-			}
-			return false;
-		});
-		if (nitem == item_.end()) {
-			return false;
-		}
-		return true;
-	}
-	// default item not exists to prevent things wrong
-	return false;
-}
-
-char Inventory::checkitem(pc* pc, uint32 id, uint32 amount) {
-	int item_type = utils::itemdb_type(id);
-
-	if (item_type == ITEMDB_USE) {
-		auto find_use = std::find_if(item_.begin(), item_.end(), [&id](std::shared_ptr<INV_ITEM> const& use) {
-			return use->item_typeid == id && use->valid == 1;
-		});
-
-		if (find_use == item_.end()) {
-			return CHECKITEM_PASS;
-		}
-
-		if ((*find_use)->c0 >= MAX_AMOUNT_ITEM) {
-			return CHECKITEM_OVERLIMIT;
-		}
-
-		if ((*find_use)->c0 + amount < MAX_AMOUNT_ITEM) {
-			return CHECKITEM_PASS;
-		}
-	}
-	else if (item_type == ITEMDB_CARD) {
-		return CHECKITEM_PASS;
-	}
-
-	return CHECKITEM_FAIL;
-}
-
-SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CHAR> const& char_, bool toVector) {
-	assert(char_);
-	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
-	tran->item_id = char_->id;
-	tran->item_typeid = char_->char_typeid;
-	tran->old_amount = tran->new_amount = 1;
-	if (toVector) transaction_.push_back(tran);
-	return tran;
-}
-
-SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_ITEM> const& item, uint32 old_amount, bool toVector) {
-	assert(item);
-	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
-	tran->item_typeid = item->item_typeid;
-	tran->item_id = item->id;
-	tran->old_amount = old_amount;
-	tran->new_amount = item->c0;
-	if (toVector) transaction_.push_back(tran);
-	return tran;
-}
-
-SP_INV_TRANSACTION Inventory::add_transaction(uint8 types, std::shared_ptr<INV_CARD> const& card, uint32 old_amount, bool toVector) {
-	assert(card);
-	std::shared_ptr<INV_TRANSACTION> tran = std::make_shared<INV_TRANSACTION>();
-	tran->item_typeid = card->card_typeid;
-	tran->item_id = card->id;
-	tran->old_amount = old_amount;
-	tran->new_amount = card->amount;
-	if (toVector) transaction_.push_back(tran);
-	return tran;
-}
-
-void Inventory::load_character(pc* pc) {
-	// we have to clear char and char equip first because we will use this function again
-	// this is automatically destroy object inside these two vectors
-	character_.clear();
-	character_equip_.clear();
-
-	{
-		Poco::Data::Session sess = sdb->get_session();
-		Poco::Data::Statement stm(sess);
-		stm << "SELECT * FROM char WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
-
-		if (!rs.rowCount()) {
-			pc->disconnect();
-			return;
-		}
-
-		bool done = rs.moveFirst();
-
-		while (done) {
-			std::shared_ptr<INV_CHAR> char_(new INV_CHAR());
-			char_->id = rs["char_id"];
-			char_->char_typeid = rs["char_typeid"];
-			char_->hair_color = rs["hair_color"];
-			char_->c0 = rs["c0"];
-			char_->c1 = rs["c1"];
-			char_->c2 = rs["c2"];
-			char_->c3 = rs["c3"];
-			char_->c4 = rs["c4"];
-			char_->flag = rs["flag"];
-			character_.push_back(char_);
-			done = rs.moveNext();
-		}
-	}
-
-	{
-		Poco::Data::Session sess = sdb->get_session();
-		Poco::Data::Statement stm(sess);
-		stm << "SELECT * FROM char_equip WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
-		bool done = rs.moveFirst();
-
-		while (done) {
-			std::shared_ptr<INV_CHAR_EQUIP> pce(new INV_CHAR_EQUIP());
-			pce->char_id = rs["char_id"];
-			pce->item_id = rs["item_id"];
-			pce->item_typeid = rs["item_typeid"];
-			pce->num = rs["num"];
-			character_equip_.push_back(pce);
-			done = rs.moveNext();
-		}
-	}
-}
-
-void Inventory::load_item(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
-	stm << "SELECT * FROM inventory WHERE account_id = ?", use(pc->account_id_), now;
-	Poco::Data::RecordSet rs(stm);
-	bool done = rs.moveFirst();
-
-	while (done) {
-		std::shared_ptr<INV_ITEM> item(new INV_ITEM());
-		item->id = rs["id"];
-		item->item_typeid = rs["typeid"];
-		item->c0 = rs["c0"];
-		item->c1 = rs["c1"];
-		item->c2 = rs["c2"];
-		item->c3 = rs["c3"];
-		item->c4 = rs["c4"];
-		item->flag = rs["flag"];
-		item->type = rs["item_type"];
-		item->reg_date = (Poco::LocalDateTime)rs["reg_date"];
-		item->end_date = (Poco::LocalDateTime)rs["end_date"];
-		item->valid = rs["valid"];
-		item_.push_back(item);
-
-		done = rs.moveNext();
-	}
-}
-
-void Inventory::load_club_data(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
-	stm << "SELECT A.* FROM club_data A "
-		<< "INNER JOIN inventory B ON B.id = A.item_id AND B.account_id = ? AND B.valid = 1", use(pc->account_id_), now;
-	Poco::Data::RecordSet rs(stm);
-
-	bool done = rs.moveFirst();
-
-	while (done) {
-		std::shared_ptr<INV_CLUB_DATA> club_data(new INV_CLUB_DATA());
-		club_data->item_id = rs["item_id"];
-		club_data->c0 = rs["c0"];
-		club_data->c1 = rs["c1"];
-		club_data->c2 = rs["c2"];
-		club_data->c3 = rs["c3"];
-		club_data->c4 = rs["c4"];
-		club_data->point = rs["point"];
-		club_data->work_count = rs["work_count"];
-		club_data->cancel_count = rs["cancel_count"];
-		club_data->point_total = rs["point_total"];
-		club_data->pang_total = rs["pang_total"];
-		club_.push_back(club_data);
-		done = rs.moveNext();
-	}
-}
-
-void Inventory::load_equipment(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
-	stm << "SELECT * FROM equipment WHERE account_id = ?", use(pc->account_id_), now;
-
-	Poco::Data::RecordSet rs(stm);
-
-	if (rs.rowCount() > 0) {
-		equipment.caddie_id = rs["caddie_id"];
-		equipment.club_id = rs["club_id"];
-		equipment.char_id = rs["character_id"];
-		equipment.ball_id = rs["ball_typeid"];
-		equipment.item_slot[0] = rs["item_slot_1"];
-		equipment.item_slot[1] = rs["item_slot_2"];
-		equipment.item_slot[2] = rs["item_slot_3"];
-		equipment.item_slot[3] = rs["item_slot_4"];
-		equipment.item_slot[4] = rs["item_slot_5"];
-		equipment.item_slot[5] = rs["item_slot_6"];
-		equipment.item_slot[6] = rs["item_slot_7"];
-		equipment.item_slot[7] = rs["item_slot_8"];
-		equipment.item_slot[8] = rs["item_slot_9"];
-		equipment.item_slot[9] = rs["item_slot_10"];
-		equipment.mascot_id = rs["mascot_id"];
-	}
-}
-
-void Inventory::load_card(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
-	stm << "SELECT * FROM card WHERE account_id = ? and valid = 1", use(pc->account_id_), now;
-	Poco::Data::RecordSet rs(stm);
-	bool done = rs.moveFirst();
-
-	while (done) {
-		std::shared_ptr<INV_CARD> card = std::make_shared<INV_CARD>();
-		card->id = rs["id"];
-		card->card_typeid = rs["typeid"];
-		card->amount = rs["amount"];
-		card->sync = false;
-		card_.push_back(card);
-		done = rs.moveNext();
-	}
-}
-
-void Inventory::send_card(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0x138);
-	packet.write<uint32>(0);
-	packet.write<uint16>((uint16)card_.size());
-
-	for (auto &card : card_) {
-		packet.write<uint32>(card->id);
-		packet.write<uint32>(card->card_typeid);
-		packet.write_null(12);
-		packet.write<uint32>(card->amount);
-		packet.write_null(0x20);
-		packet.write<uint16>(1);
-	}
-
-	pc->send_packet(&packet);
-}
-
-void Inventory::send_char(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0x70);
-	packet.write<uint16>((uint16)character_.size());
-	packet.write<uint16>((uint16)character_.size());
-
-	for (auto &it : character_) {
-		packet.write<uint32>(it->char_typeid);
-		packet.write<uint32>(it->id);
-		packet.write<uint16>(it->hair_color);
-		packet.write<uint16>(it->flag);
-
-		for (int i = 1; i <= 24; ++i) {
-			auto ite = std::find_if(character_equip_.begin(), character_equip_.end(), [i](std::shared_ptr<INV_CHAR_EQUIP> m) { return m->num = i; });
-			packet.write<uint32>((*ite)->item_typeid);
-			packet.write<uint32>((*ite)->item_id);
-		}
-
-		packet.write_null(0xd8);
-		packet.write<uint32>(0); // left ring
-		packet.write<uint32>(0); // right ring
-		packet.write_null(12); // ??
-		packet.write<uint32>(0); // cutin index
-		packet.write_null(12); // ??
-		packet.write<uint8>(it->c0);
-		packet.write<uint8>(it->c1);
-		packet.write<uint8>(it->c2);
-		packet.write<uint8>(it->c3);
-		packet.write<uint8>(it->c4);
-		packet.write<uint8>(0); // mastery point
-		packet.write_null(3);
-		packet.write_null(40); // card data
-		packet.write<uint32>(0);
-		packet.write<uint32>(0);
-	}
-
-	pc->send_packet(&packet);
-}
-
-void Inventory::send_equipment(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0x72);
-	packet.write<uint32>(equipment.caddie_id);
-	packet.write<uint32>(equipment.char_id);
-	packet.write<uint32>(equipment.club_id);
-	packet.write<uint32>(equipment.ball_id);
-	packet.write<uint32>(equipment.item_slot[0]);
-	packet.write<uint32>(equipment.item_slot[1]);
-	packet.write<uint32>(equipment.item_slot[2]);
-	packet.write<uint32>(equipment.item_slot[3]);
-	packet.write<uint32>(equipment.item_slot[4]);
-	packet.write<uint32>(equipment.item_slot[5]);
-	packet.write<uint32>(equipment.item_slot[6]);
-	packet.write<uint32>(equipment.item_slot[7]);
-	packet.write<uint32>(equipment.item_slot[8]);
-	packet.write<uint32>(equipment.item_slot[9]);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0); // title index
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0);
-	packet.write<uint32>(0); // title typeid
-	packet.write<uint32>(equipment.mascot_id);
-	packet.write<uint32>(0); // poster1
-	packet.write<uint32>(0); // poster 2
-	pc->send_packet(&packet);
-}
-
-void Inventory::send_item(pc* pc) {
-	Packet packet;
-	packet.write<uint16>(0x73);
-	packet.write<uint16>((uint16)item_.size());
-	packet.write<uint16>((uint16)item_.size());
-
-	for (auto &item : item_) {
-		packet.write<uint32>(item->id);
-		packet.write<uint32>(item->item_typeid);
-		packet.write<uint32>(sys_cal_hour_left(item));
-		packet.write<uint16>(item->c0);
-		packet.write<uint16>(item->c1);
-		packet.write<uint16>(item->c2);
-		packet.write<uint16>(item->c3);
-		packet.write<uint16>(item->c4);
-		packet.write_null(1);
-		packet.write<uint8>(item->flag);
-		packet.write<uint32>(sys_is_rent(item->flag) ? (uint32)item->reg_date.timestamp().epochTime() : 0);
-		packet.write<uint32>(0);
-		packet.write<uint32>(sys_is_rent(item->flag) ? (uint32)item->end_date.timestamp().epochTime() : 0);
-		packet.write_null(4);
-		packet.write<uint8>(2);
-		packet.write_null(16); // ucc name
-		packet.write_null(25); 
-		packet.write_null(9); //ucc unique
-		packet.write<uint8>(0); // ucc status
-		packet.write<uint16>(0); // copy count
-		packet.write_null(16); // drawer
-		packet.write_null(60);
-
-		if (utils::itemdb_type(item->item_typeid) == ITEMDB_CLUB) {
-			auto club = std::find_if(club_.begin(), club_.end(), [&item](std::shared_ptr<INV_CLUB_DATA> const& cl) {
-				return cl->item_id == item->id;
-			});
-
-			if (club != club_.end()) {
-				packet.write<uint16>((*club)->c0);
-				packet.write<uint16>((*club)->c1);
-				packet.write<uint16>((*club)->c2);
-				packet.write<uint16>((*club)->c3);
-				packet.write<uint16>((*club)->c4);
-				packet.write<uint32>((*club)->point);
-				packet.write<uint32>((*club)->cancel_count);
-				packet.write<uint32>((*club)->work_count);
-			}
-			else {
-				packet.write_null(22);
-			}
-		}
-		else {
-			packet.write_null(22);
-		}
-
-		packet.write<uint32>(0);
-	};
-
-	pc->send_packet(&packet);
-}
-
-/* new warehouse implement */
 PC_Warehouse::PC_Warehouse() :
-	equipment_(std::make_shared<PC_Equipment>()) {}
+	equipment(CREATE_SHARED(PC_Equipment)) {}
 
 void PC_Warehouse::pc_load_data(pc* pc) {
 	Poco::Data::Session sess = sdb->get_session();
@@ -444,7 +29,7 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Item> item = std::make_shared<Item>();
+			std::shared_ptr<Item> item = CREATE_SHARED(Item);
 			item->id = rs["char_id"];
 			item->item_typeid = rs["char_typeid"];
 			item->hair_colour = rs["hair_color"];
@@ -454,7 +39,7 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 			item->c3 = rs["c3"];
 			item->c4 = rs["c4"];
 			item->flag = rs["flag"];
-			inventory_.push_back(item);
+			inventory.push_back(item);
 			done = rs.moveNext();
 		}
 	}
@@ -473,13 +58,13 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 			uint32 item_typeid = rs["item_typeid"];
 			uint8 item_num = rs["num"];
 
-			auto char_f = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
-				return item->id == char_id;
+			auto find_char = std::find_if(inventory.begin(), inventory.end(), [&char_id](PC_ITEM const& ritem) {
+				return ritem->id == char_id;
 			});
 
-			if (char_f != inventory_.end()) {
-				(*char_f)->equip_index[item_num - 1] = item_id;
-				(*char_f)->equip_typeid[item_num - 1] = item_typeid;
+			if (find_char != inventory.end()) {
+				(*find_char)->equip_index[item_num - 1] = item_id;
+				(*find_char)->equip_typeid[item_num - 1] = item_typeid;
 			}
 
 			done = rs.moveNext();
@@ -495,7 +80,7 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Item> item = std::make_shared<Item>();
+			std::shared_ptr<Item> item = CREATE_SHARED(Item);
 			item->id = rs["id"];
 			item->item_typeid = rs["typeid"];
 			item->c0 = rs["c0"];
@@ -507,7 +92,7 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 			item->type = rs["item_type"];
 			item->create_date = (Poco::DateTime)rs["reg_date"];
 			item->end_date = (Poco::DateTime)rs["end_date"];
-			inventory_.push_back(item);
+			inventory.push_back(item);
 			done = rs.moveNext();
 		}
 	}
@@ -523,7 +108,7 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Club_Data> club = std::make_shared<Club_Data>();
+			std::shared_ptr<Club_Data> club = CREATE_SHARED(Club_Data);
 			club->item_id = rs["item_id"];
 			club->c0 = rs["c0"];
 			club->c1 = rs["c1"];
@@ -548,11 +133,11 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 		bool done = rs.moveFirst();
 		while (done) {
-			std::shared_ptr<Item> item = std::make_shared<Item>();
+			std::shared_ptr<Item> item = CREATE_SHARED(Item);
 			item->id = rs["id"];
 			item->item_typeid = rs["typeid"];
 			item->c0 = rs["amount"];
-			inventory_.push_back(item);
+			inventory.push_back(item);
 			done = rs.moveNext();
 		}
 	}
@@ -565,21 +150,21 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 		Poco::Data::RecordSet rs(stm);
 
 		if (rs.rowCount() > 0) {
-			equipment_->caddie_id = rs["caddie_id"];
-			equipment_->club_id = rs["club_id"];
-			equipment_->char_id = rs["character_id"];
-			equipment_->ball_id = rs["ball_typeid"];
-			equipment_->item_slot[0] = rs["item_slot_1"];
-			equipment_->item_slot[1] = rs["item_slot_2"];
-			equipment_->item_slot[2] = rs["item_slot_3"];
-			equipment_->item_slot[3] = rs["item_slot_4"];
-			equipment_->item_slot[4] = rs["item_slot_5"];
-			equipment_->item_slot[5] = rs["item_slot_6"];
-			equipment_->item_slot[6] = rs["item_slot_7"];
-			equipment_->item_slot[7] = rs["item_slot_8"];
-			equipment_->item_slot[8] = rs["item_slot_9"];
-			equipment_->item_slot[9] = rs["item_slot_10"];
-			equipment_->mascot_id = rs["mascot_id"];
+			equipment->caddie_id = rs["caddie_id"];
+			equipment->club_id = rs["club_id"];
+			equipment->char_id = rs["character_id"];
+			equipment->ball_id = rs["ball_typeid"];
+			equipment->item_slot[0] = rs["item_slot_1"];
+			equipment->item_slot[1] = rs["item_slot_2"];
+			equipment->item_slot[2] = rs["item_slot_3"];
+			equipment->item_slot[3] = rs["item_slot_4"];
+			equipment->item_slot[4] = rs["item_slot_5"];
+			equipment->item_slot[5] = rs["item_slot_6"];
+			equipment->item_slot[6] = rs["item_slot_7"];
+			equipment->item_slot[7] = rs["item_slot_8"];
+			equipment->item_slot[8] = rs["item_slot_9"];
+			equipment->item_slot[9] = rs["item_slot_10"];
+			equipment->mascot_id = rs["mascot_id"];
 		}
 	}
 }
@@ -589,15 +174,15 @@ int PC_Warehouse::item_count(inventory_type type_name) {
 
 	switch (type_name) {
 	case IV_CHAR:
-		for (auto &item : inventory_) {
-			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
+		for (auto &item : inventory) {
+			if (itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
 				count += 1;
 			}
 		}
 		break;
 	case IV_ALLITEM:
-		for (auto &item : inventory_) {
-			uint8 item_type = utils::itemdb_type(item->item_typeid);
+		for (auto &item : inventory) {
+			uint8 item_type = itemdb_type(item->item_typeid);
 			if (item_type == ITEMDB_PART
 				|| item_type == ITEMDB_CLUB
 				|| item_type == ITEMDB_BALL
@@ -610,8 +195,8 @@ int PC_Warehouse::item_count(inventory_type type_name) {
 		}
 		break;
 	case IV_CARD:
-		for (auto &item : inventory_) {
-			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CARD) {
+		for (auto &item : inventory) {
+			if (itemdb_type(item->item_typeid) == ITEMDB_CARD) {
 				count += 1;
 			}
 		}
@@ -621,9 +206,9 @@ int PC_Warehouse::item_count(inventory_type type_name) {
 	return count;
 }
 
-uint16 PC_Warehouse::get_time_left(std::shared_ptr<Item> const& item) {
+uint16 PC_Warehouse::get_time_left(PC_ITEM const& item) {
 	if (pc_item_isrent(item->flag)) {
-		return static_cast<uint32>((item->end_date.timestamp().epochTime() - item->create_date.timestamp().epochTime()) / (3600));
+		return static_cast<uint32>( ( TIMESTAMP(item->end_date) - TIMESTAMP(item->create_date) ) / 3600 );
 	}
 	return 0;
 }
@@ -638,41 +223,41 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	/* New Scope */
 	{
 		count = item_count(IV_CHAR);
-		p.write<uint16>(0x70);
-		p.write<uint16>(count);
-		p.write<uint16>(count);
+		WTHEAD(&p, 0x70);
+		WTIU16(&p, count);
+		WTIU16(&p, count);
 
-		for (auto &item : inventory_) {
-			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
-				p.write<uint32>(item->item_typeid);
-				p.write<uint32>(item->id);
-				p.write<uint16>(item->hair_colour);
-				p.write<uint16>(item->flag);
+		for (auto &item : inventory) {
+			if (itemdb_type(item->item_typeid) == ITEMDB_CHAR) {
+				WTIU32(&p, item->item_typeid);
+				WTIU32(&p, item->id);
+				WTIU16(&p, item->hair_colour);
+				WTIU16(&p, item->flag);
 
 				for (int i = 0; i < 24; ++i) {
-					p.write<uint32>(item->equip_typeid[i]);
+					WTIU32(&p, item->equip_typeid[i]);
 				}
 				
 				for (int i = 0; i < 24; ++i) {
-					p.write<uint32>(item->equip_index[i]);
+					WTIU32(&p, item->equip_index[i]);
 				}
 
-				p.write_null(0xd8);
-				p.write<uint32>(0); // left ring
-				p.write<uint32>(0); // right ring
-				p.write_null(12); // ??
-				p.write<uint32>(0); // cutin index
-				p.write_null(12); // ??
-				p.write<uint8>((uint8)item->c0);
-				p.write<uint8>((uint8)item->c1);
-				p.write<uint8>((uint8)item->c2);
-				p.write<uint8>((uint8)item->c3);
-				p.write<uint8>((uint8)item->c4);
-				p.write<uint8>(0); // mastery point
-				p.write_null(3);
-				p.write_null(40); // card data
-				p.write<uint32>(0);
-				p.write<uint32>(0);
+				WTZERO(&p, 0xD8);
+				WTIU32(&p, 0); // LEFT RING
+				WTIU32(&p, 0); // RIGHT RING
+				WTZERO(&p, 12); // ?
+				WTIU32(&p, 0); // CUTIN INDEX
+				WTZERO(&p, 12);
+				WTIU08(&p, (uint8)item->c0);
+				WTIU08(&p, (uint8)item->c1);
+				WTIU08(&p, (uint8)item->c2);
+				WTIU08(&p, (uint8)item->c3);
+				WTIU08(&p, (uint8)item->c4);
+				WTIU08(&p, 0); // MASTERY POINT
+				WTZERO(&p, 3);
+				WTZERO(&p, 40); // CARD DATA
+				WTIU32(&p, 0);
+				WTIU32(&p, 0);
 			}
 		}
 	}
@@ -682,12 +267,12 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	/* New Scope */
 	{
 		count = item_count(IV_ALLITEM);
-		p.write<uint16>(0x73);
-		p.write<uint16>(count);
-		p.write<uint16>(count);
+		WTHEAD(&p, 0x73);
+		WTIU16(&p, count);
+		WTIU16(&p, count);
 
-		for (auto &item : inventory_) {
-			uint8 item_type = utils::itemdb_type(item->item_typeid);
+		for (auto &item : inventory) {
+			uint8 item_type = itemdb_type(item->item_typeid);
 			if (item_type == ITEMDB_PART
 				|| item_type == ITEMDB_CLUB
 				|| item_type == ITEMDB_BALL
@@ -695,51 +280,51 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 				|| item_type == ITEMDB_SKIN
 				|| item_type == ITEMDB_AUX)
 			{
-				p.write<uint32>(item->id);
-				p.write<uint32>(item->item_typeid);
-				p.write<uint32>(get_time_left(item));
-				p.write<uint16>(item->c0);
-				p.write<uint16>(item->c1);
-				p.write<uint16>(item->c2);
-				p.write<uint16>(item->c3);
-				p.write<uint16>(item->c4);
-				p.write_null(1);
-				p.write<uint8>(item->flag);
+				WTIU32(&p, item->id);
+				WTIU32(&p, item->item_typeid);
+				WTIU32(&p, get_time_left(item));
+				WTIU16(&p, item->c0);
+				WTIU16(&p, item->c1);
+				WTIU16(&p, item->c2);
+				WTIU16(&p, item->c3);
+				WTIU16(&p, item->c4);
+				WTZERO(&p, 1);
+				WTIU08(&p, item->flag);
 
-				p.write<uint32>(pc_item_isrent(item->flag) ? (uint32)item->create_date.timestamp().epochTime() : 0);
-				p.write<uint32>(0);
-				p.write<uint32>(pc_item_isrent(item->flag) ? (uint32)item->end_date.timestamp().epochTime() : 0);
-				p.write_null(4);
-				p.write<uint8>(2);
-				p.write_null(16); // ucc name
-				p.write_null(25);
-				p.write_null(9); //ucc unique
-				p.write<uint8>(0); // ucc status
-				p.write<uint16>(0); // copy count
-				p.write_null(16); // drawer
-				p.write_null(60);
+				WTIU32(&p, pc_item_isrent(item->flag) ? (uint32)TIMESTAMP(item->create_date) : 0);
+				WTIU32(&p, 0);
+				WTIU32(&p, pc_item_isrent(item->flag) ? (uint32)TIMESTAMP(item->end_date) : 0);
+				WTZERO(&p, 4);
+				WTIU08(&p, 2);
+				WTFSTR(&p, "", 16); // UCC NAME
+				WTZERO(&p, 25);
+				WTFSTR(&p, "", 9); // UCC UNIQUE
+				WTIU08(&p, 0); // UCC STATUS
+				WTIU16(&p, 0); // UCC COPY COUNT
+				WTFSTR(&p, "", 16); // UCC DRAWER NAME
+				WTZERO(&p, 60);
 
 				if (item_type == ITEMDB_CLUB) {
 					// club status
-					auto club_data = std::find_if(club_data_.begin(), club_data_.end(), [&item](std::shared_ptr<Club_Data> const& cd) {
-						return cd->item_id == item->id;
+					auto club_data = std::find_if(club_data_.begin(), club_data_.end(), [&item](std::shared_ptr<Club_Data> const& rcd) {
+						return rcd->item_id == item->id;
 					});
 
 					bool valid = club_data != club_data_.end();
-					p.write<uint16>(valid ? (*club_data)->c0 : 0);
-					p.write<uint16>(valid ? (*club_data)->c1 : 0);
-					p.write<uint16>(valid ? (*club_data)->c2 : 0);
-					p.write<uint16>(valid ? (*club_data)->c3 : 0);
-					p.write<uint16>(valid ? (*club_data)->c4 : 0);
-					p.write<uint32>(valid ? (*club_data)->point : 0);
-					p.write<uint32>(valid ? (*club_data)->cancel_count : 0);
-					p.write<uint32>(valid ? (*club_data)->work_count : 0);
+					WTIU16(&p, valid ? (*club_data)->c0 : 0);
+					WTIU16(&p, valid ? (*club_data)->c1 : 0);
+					WTIU16(&p, valid ? (*club_data)->c2 : 0);
+					WTIU16(&p, valid ? (*club_data)->c3 : 0);
+					WTIU16(&p, valid ? (*club_data)->c4 : 0);
+					WTIU32(&p, valid ? (*club_data)->point : 0);
+					WTIU32(&p, valid ? (*club_data)->cancel_count : 0);
+					WTIU32(&p, valid ? (*club_data)->work_count : 0);
 				}
 				else {
-					p.write_null(22);
+					WTZERO(&p, 22);
 				}
 
-				p.write<uint32>(0);
+				WTIU32(&p, 0);
 			}
 		}
 	}
@@ -749,18 +334,18 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	/* New Scope */
 	{
 		count = item_count(IV_CARD);
-		p.write<uint16>(0x138);
-		p.write<uint32>(0);
-		p.write<uint16>(count);
+		WTHEAD(&p, 0x138);
+		WTIU32(&p, 0);
+		WTIU16(&p, count);
 
-		for (auto &item : inventory_) {
-			if (utils::itemdb_type(item->item_typeid) == ITEMDB_CARD) {
-				p.write<uint32>(item->id);
-				p.write<uint32>(item->item_typeid);
-				p.write_null(12);
-				p.write<uint32>(item->c0);
-				p.write_null(0x20);
-				p.write<uint16>(1);
+		for (auto &item : inventory) {
+			if (itemdb_type(item->item_typeid) == ITEMDB_CARD) {
+				WTIU32(&p, item->id);
+				WTIU32(&p, item->item_typeid);
+				WTZERO(&p, 12);
+				WTIU32(&p, item->c0);
+				WTZERO(&p, 0x20);
+				WTIU16(&p, 1);
 			}
 		}
 	}
@@ -769,36 +354,36 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	case IV_EQUIPMENT:
 	/* New Scope */
 	{
-		p.write<uint16>(0x72);
-		p.write<uint32>(equipment_->caddie_id);
-		p.write<uint32>(equipment_->char_id);
-		p.write<uint32>(equipment_->club_id);
-		p.write<uint32>(equipment_->ball_id);
-		p.write<uint32>(equipment_->item_slot[0]);
-		p.write<uint32>(equipment_->item_slot[1]);
-		p.write<uint32>(equipment_->item_slot[2]);
-		p.write<uint32>(equipment_->item_slot[3]);
-		p.write<uint32>(equipment_->item_slot[4]);
-		p.write<uint32>(equipment_->item_slot[5]);
-		p.write<uint32>(equipment_->item_slot[6]);
-		p.write<uint32>(equipment_->item_slot[7]);
-		p.write<uint32>(equipment_->item_slot[8]);
-		p.write<uint32>(equipment_->item_slot[9]);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0); // title index
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0);
-		p.write<uint32>(0); // title typeid
-		p.write<uint32>(equipment_->mascot_id);
-		p.write<uint32>(0); // poster1
-		p.write<uint32>(0); // poster 2
+		WTHEAD(&p, 0x72);
+		WTIU32(&p, equipment->caddie_id);
+		WTIU32(&p, equipment->char_id);
+		WTIU32(&p, equipment->club_id);
+		WTIU32(&p, equipment->ball_id);
+		WTIU32(&p, equipment->item_slot[0]);
+		WTIU32(&p, equipment->item_slot[1]);
+		WTIU32(&p, equipment->item_slot[2]);
+		WTIU32(&p, equipment->item_slot[3]);
+		WTIU32(&p, equipment->item_slot[4]);
+		WTIU32(&p, equipment->item_slot[5]);
+		WTIU32(&p, equipment->item_slot[6]);
+		WTIU32(&p, equipment->item_slot[7]);
+		WTIU32(&p, equipment->item_slot[8]);
+		WTIU32(&p, equipment->item_slot[9]);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0); // TITLE INDEX
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0);
+		WTIU32(&p, 0); // TITLE TYPEID
+		WTIU32(&p, equipment->mascot_id);
+		WTIU32(&p, 0); // POSTER 1
+		WTIU32(&p, 0); // POSTER 2
 	}
 	/* End Scope */
 	break;
@@ -807,45 +392,109 @@ void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
 	pc->send_packet(&p);
 }
 
-char PC_Warehouse::additem(pc* pc, item* item, bool transaction, bool from_shop, bool test_additem) {
-	assert(pc && item);
+char PC_Warehouse::additem(pc* pc, item* item, bool test_additem, ITEM_TRANSACTION* tran) {
+	assert(pc);
+	assert(item);
 
-	auto item_find = std::find_if(inventory_.begin(), inventory_.end(), [&item](std::shared_ptr<Item> const& _item) {
-		return _item->item_typeid == item->type_id;
+	auto item_find = std::find_if(inventory.begin(), inventory.end(), [&item](PC_ITEM const& ritem) {
+		return ritem->item_typeid == item->type_id && ritem->valid == 1;
 	});
 
-	switch (utils::itemdb_type(item->item_type)) {
-	case ITEMDB_CHAR: 
+	// declare sql variable
+	Poco::Data::Session sess = sdb->get_session();
+	Poco::Data::Statement stm(sess);
 
+	int old_amount = 0;
+
+	switch (itemdb_type(item->type_id)) {
+	case ITEMDB_CHAR:
 	{
-		if (item_find != inventory_.end()) return ADDITEM_DUPLICATED;
+		if (item_find != inventory.end()) return ADDITEM_DUPLICATED;
 		if (test_additem) return ADDITEM_SUCCESS;
 
-		// Insert character to database
-		Poco::Data::Session sess = sdb->get_session();
-		Poco::Data::Statement stm(sess);
 		stm << "EXEC sys_make_char ?, ?", use(pc->account_id_), use(item->type_id), now;
 		Poco::Data::RecordSet rs(stm);
 
-		int ret_id = rs["char_ret_id"];
-		assert(ret_id > 0);
-		auto find_char = std::find_if(inventory_.begin(), inventory_.end(), [&ret_id](std::shared_ptr<Item> const& _item) {
-			return _item->id == ret_id;
-		});
+		PC_ITEM new_item = std::make_shared<Item>(rs["char_ret_id"], rs["char_ret_typeid"], 1, rs["char_ret_hair"]);
+		inventory.push_back(new_item);
 
-		if (from_shop) show_shopbuyitem(pc, *find_char, item);
-		if (transaction) put_transaction(*find_char);
+		if (tran)
+			tran->reset(new INV_TRANSACTION(new_item, 0));
+
+		return ADDITEM_SUCCESS;
 	}
+	break;
+	case ITEMDB_CARD:
+	{
+		// if the item can be consumable and valid
+		if ((item_find != inventory.end())) {
+			if (test_additem) return ADDITEM_SUCCESS;
+			old_amount = (*item_find)->c0;
+			(*item_find)->c0 += item->amount;
+			(*item_find)->sync = true;
+			if (tran)
+				tran->reset(new INV_TRANSACTION(*item_find, old_amount));
+			return ADDITEM_SUCCESS;
+		}
+		if (test_additem) return ADDITEM_SUCCESS;
 
-		break;
+		stm << "EXEC sys_add_card ?, ?, ?", use(pc->account_id_), use(item->type_id), use(item->amount), now;
+		Poco::Data::RecordSet rs(stm);
 
+		PC_ITEM new_item = std::make_shared<Item>(rs["ret_id"], rs["ret_typeid"], rs["ret_amount"]);
+		inventory.push_back(new_item);
+
+		if (tran)
+			tran->reset(new INV_TRANSACTION(new_item, 0));
+
+		return ADDITEM_SUCCESS;
+	}
+	break;
 	default:
 		throw ItemTypeNotFound();
 		return ADDITEM_INVALID;
 		break;
 	}
 
-	return ADDITEM_SUCCESS;
+	return ADDITEM_INVALID;
+}
+
+char PC_Warehouse::delitem(pc* pc, int item_typeid, int amount, ITEM_TRANSACTION* tran) {
+	assert(pc);
+
+	auto item = std::find_if(inventory.begin(), inventory.end(), [&item_typeid](PC_ITEM const& ritem) {
+		return ritem->item_typeid == item_typeid && ritem->valid == 1;
+	});
+
+	int old_amount = 0;
+
+	switch (itemdb_type(item_typeid)) {
+	case ITEMDB_CARD:
+	{
+		// IF ITEM NOT FOUND
+		if (!VECTOR_FINDIF(inventory, item))
+			return DELITEM_ITEM_NOTFOUND;
+
+		// IF NOT ENOUGHT AMOUNT
+		if ((*item)->c0 < amount)
+			return DELITEM_AMOUNT_NOTENOUGHT;
+
+		old_amount = (*item)->c0;
+		(*item)->c0 -= amount;
+		(*item)->sync = true;
+
+		if ((*item)->c0 <= 0)
+			(*item)->valid = false;
+
+		if (tran)
+			tran->reset(new INV_TRANSACTION((*item), old_amount));
+
+		return DELITEM_SUCCESS;
+	}
+	break;
+	}
+
+	return DELITEM_ERROR;
 }
 
 void PC_Warehouse::reload_char_equipment(pc* pc) {
@@ -853,25 +502,25 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 	
 	// Update equipment first
 	{
-		for (auto &char_en : inventory_) {
-			if (utils::itemdb_type(char_en->item_typeid) == ITEMDB_CHAR) {
+		for (auto &chars : inventory) {
+			if (itemdb_type(chars->item_typeid) == ITEMDB_CHAR) {
 				sess << "UPDATE char SET hair_color = ?, c0 = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ? WHERE char_id = ? AND account_id = ?",
-					use(char_en->hair_colour), 
-					use(char_en->c0),
-					use(char_en->c1), 
-					use(char_en->c2), 
-					use(char_en->c3), 
-					use(char_en->c4),
-					use(char_en->id), 
+					use(chars->hair_colour),
+					use(chars->c0),
+					use(chars->c1),
+					use(chars->c2),
+					use(chars->c3),
+					use(chars->c4),
+					use(chars->id),
 					use(pc->account_id_), now;
 
 				// update all char equipment
 				for (int i = 0; i < 24; ++i) {
 					sess << "UPDATE char_equip SET item_id = ?, item_typeid = ? WHERE account_id = ? AND char_id = ? AND num = ?",
-						use(char_en->equip_index[i]),
-						use(char_en->equip_typeid[i]),
+						use(chars->equip_index[i]),
+						use(chars->equip_typeid[i]),
 						use(pc->account_id_), 
-						use(char_en->id),
+						use(chars->id),
 						bind(i + 1);
 				}
 			}
@@ -887,7 +536,7 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 		bool done = rs.moveFirst();
 
 		while (done) {
-			std::shared_ptr<Item> item = std::make_shared<Item>();
+			std::shared_ptr<Item> item = CREATE_SHARED(Item);
 			item->id = rs["char_id"];
 			item->item_typeid = rs["char_typeid"];
 			item->hair_colour = rs["hair_color"];
@@ -897,7 +546,7 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 			item->c3 = rs["c3"];
 			item->c4 = rs["c4"];
 			item->flag = rs["flag"];
-			inventory_.push_back(item);
+			inventory.push_back(item);
 			done = rs.moveNext();
 		}
 	}
@@ -916,13 +565,13 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 			uint32 item_typeid = rs["item_typeid"];
 			uint8 item_num = rs["num"];
 
-			auto char_f = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+			auto chars = std::find_if(inventory.begin(), inventory.end(), [&char_id](std::shared_ptr<Item> const& item) {
 				return item->id == char_id;
 			});
 
-			if (char_f != inventory_.end()) {
-				(*char_f)->equip_index[item_num - 1] = item_id;
-				(*char_f)->equip_typeid[item_num - 1] = item_typeid;
+			if (chars != inventory.end()) {
+				(*chars)->equip_index[item_num - 1] = item_id;
+				(*chars)->equip_typeid[item_num - 1] = item_typeid;
 			}
 
 			done = rs.moveNext();
@@ -930,7 +579,7 @@ void PC_Warehouse::reload_char_equipment(pc* pc) {
 	}
 }
 
-void PC_Warehouse::show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item, item* item) {
+void PC_Warehouse::show_shopbuyitem(pc* pc, PC_ITEM const& in_item, item* item) {
 	assert(pc && item && in_item);
 
 	Packet p;
@@ -948,70 +597,71 @@ void PC_Warehouse::show_shopbuyitem(pc* pc, std::shared_ptr<Item> const& in_item
 	pc->send_packet(&p);
 }
 
-void PC_Warehouse::put_transaction(std::shared_ptr<Item> const& item) {
+void PC_Warehouse::put_transaction(PC_ITEM const& item) {
 
 }
 
 uint32 PC_Warehouse::char_typeid_equiped() {
-	uint32 char_id = equipment_->char_id;
+	uint32 char_id = equipment->char_id;
 
-	auto char_s = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
+	auto chars = std::find_if(inventory.begin(), inventory.end(), [&char_id](PC_ITEM const& item) {
 		return item->id == char_id;
 	});
 
-	if (char_s != inventory_.end()) {
-		return (*char_s)->item_typeid;
+	if (VECTOR_FINDIF(inventory, chars)) {
+		return (*chars)->item_typeid;
 	}
 
 	return 0;
 }
 
 void PC_Warehouse::write_current_char(Packet* p) {
-	uint32 char_id = equipment_->char_id;
+	uint32 char_id = equipment->char_id;
 
-	auto char_s = std::find_if(inventory_.begin(), inventory_.end(), [&char_id](std::shared_ptr<Item> const& item) {
-		return item->id == char_id;
+	auto chars = std::find_if(inventory.begin(), inventory.end(), [&char_id](PC_ITEM const& ritem) {
+		return ritem->id == char_id;
 	});
 
-	if (char_s == inventory_.end()) throw "Error cannot get char data!";
+	if ( !VECTOR_FINDIF(inventory, chars) ) throw "Error, cannot get char data!";
 
-	p->write<uint32>((*char_s)->item_typeid);
-	p->write<uint32>((*char_s)->id);
-	p->write<uint16>((*char_s)->hair_colour);
-	p->write<uint16>((*char_s)->flag);
+	WTIU32(p, (*chars)->item_typeid);
+	WTIU32(p, (*chars)->id);
+	WTIU16(p, (*chars)->hair_colour);
+	WTIU16(p, (*chars)->flag);
 
 	for (int i = 0; i < 24; ++i) {
-		p->write<uint32>((*char_s)->equip_typeid[i]);
+		WTIU32(p, (*chars)->equip_typeid[i]);
 	}
 
 	for (int i = 0; i < 24; ++i) {
-		p->write<uint32>((*char_s)->equip_index[i]);
+		WTIU32(p, (*chars)->equip_index[i]);
 	}
 
-	p->write_null(0xd8);
-	p->write<uint32>(0); // left ring
-	p->write<uint32>(0); // right ring
+	WTZERO(p, 0xD8);
+	WTIU32(p, 0); // LEFT RING
+	WTIU32(p, 0); // RIGHT RING
 
-	p->write<uint32>(0);
-	p->write<uint32>(0);
-	p->write<uint32>(0);
+	WTIU32(p, 0);
+	WTIU32(p, 0);
+	WTIU32(p, 0);
 
-	p->write<uint32>(0); // cutin index
+	WTIU32(p, 0); // CUTIN INDEX
 
-	p->write<uint32>(0); 
-	p->write<uint32>(0);
-	p->write<uint32>(0);
+	WTIU32(p, 0);
+	WTIU32(p, 0);
+	WTIU32(p, 0);
 
-	p->write<uint8>((uint8)(*char_s)->c0); 
-	p->write<uint8>((uint8)(*char_s)->c1);
-	p->write<uint8>((uint8)(*char_s)->c2);
-	p->write<uint8>((uint8)(*char_s)->c3);
-	p->write<uint8>((uint8)(*char_s)->c4);
-	p->write<uint8>(0); // mastery point
+	WTIU08(p, (uint8)(*chars)->c0);
+	WTIU08(p, (uint8)(*chars)->c1);
+	WTIU08(p, (uint8)(*chars)->c2);
+	WTIU08(p, (uint8)(*chars)->c3);
+	WTIU08(p, (uint8)(*chars)->c4);
+	WTIU08(p, 0); // MASTERY POINT
 
-	p->write_null(3);
+	WTZERO(p, 3);
 
-	p->write_null(40); // card data
-	p->write<uint32>(0);
-	p->write<uint32>(0);
+	WTZERO(p, 40); // CARD DATA
+
+	WTIU32(p, 0);
+	WTIU32(p, 0);
 }

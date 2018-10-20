@@ -59,7 +59,6 @@ public:
 	void sys_send_pc_list(pc* pc);
 	void sys_send_game_list(pc* pc);
 	void sys_get_pc_data(pc* pc, Packet* p);
-	void sys_send_pc_message(pc* pc, std::string& message);
 	void sys_send_enter_lobby(pc* pc);
 	void sys_send_leave_lobby(pc* pc);
 	void sys_send(Packet* packet);
