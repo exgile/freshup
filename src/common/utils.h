@@ -46,6 +46,16 @@
 
 #define STRCMP(l, r) ( l.compare(r) == 0 )
 
+#define toQStr(str) ( QString::fromLocal8Bit(str.data(), str.size()) )
+#define toStr(qstr) ( qstr.toLocal8Bit().constData() )
+
+// use to free for array of pointers
+#define NULL_POINTER(p)	\
+do {	\
+	delete p;	\
+	p = 0;	\
+} while (0)	\
+
 void rnd_init(void);
 int32 rnd(void);
 int32 rnd_value(int32 min, int32 max);

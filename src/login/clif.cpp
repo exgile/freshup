@@ -7,6 +7,8 @@
 #include "../common/packet.h"
 #include "../common/utils.h"
 
+
+
 clif* sclif = nullptr;
 
 clif::clif() {}
@@ -17,16 +19,16 @@ void clif::login_msg(pc* pc, loginmsg type) {
 
 	switch(type) {
 	case INCORRECT_PASSWORD:
-		WTPHEX(&p, &INCORRECT_PWD[0], sizeof INCORRECT_PWD);
+		WTPHEX(&p, &incorrect_pwd[0], sizeof incorrect_pwd);
 		break;
 	case USER_NOT_FOUND:
-		WTPHEX(&p, &USER_NOTFOUND[0], sizeof USER_NOTFOUND);
+		WTPHEX(&p, &user_notfound[0], sizeof user_notfound);
 		break;
 	case USER_STATE_BAN:
-		WTPHEX(&p, &USERGETBANNED[0], sizeof USERGETBANNED);
+		WTPHEX(&p, &user_banned[0], sizeof user_banned);
 		break;
 	case MAINTENANCE_MODE:
-		WTPHEX(&p, &SVMAINTENANCE[0], sizeof SVMAINTENANCE);
+		WTPHEX(&p, &sv_maintenance[0], sizeof sv_maintenance);
 		break;
 	}
 
@@ -105,10 +107,9 @@ void clif::send_pc_data(pc* pc) {
 }
 
 void clif::send_game_server(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
+	Statement stm(*get_session());
 	stm << "SELECT * FROM server WHERE server_type = 0", Poco::Data::Keywords::now;
-	Poco::Data::RecordSet rs(stm);
+	RecordSet rs(stm);
 	bool done = rs.moveFirst();
 
 	Packet p;
@@ -140,10 +141,9 @@ void clif::send_game_server(pc* pc) {
 }
 
 void clif::send_hotkey(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
+	Statement stm(*get_session());
 	stm << "SELECT * FROM hotkey WHERE account_id = ?", Poco::Data::Keywords::bind(pc->get_accountid()), Poco::Data::Keywords::now;
-	Poco::Data::RecordSet rs(stm);
+	RecordSet rs(stm);
 	bool done = rs.moveFirst();
 
 	Packet p;

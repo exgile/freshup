@@ -1,5 +1,4 @@
 #include <iostream>
-#include "../common/unique.h"
 #include "../common/db.h"
 #include "../common/crypto.h"
 #include "../common/timer.h"
@@ -12,22 +11,19 @@
 #include "account.h"
 #include "channel.h"
 #include "itemdb.h"
-#include "shop.h"
+
+#include <boost/format.hpp>
 
 void signal_handler(int sig) {
-	delete unique_s;
-	delete sdb;
 	delete crypt;
 	delete config;
-	delete pc_process;
-	delete pcs;
+	delete pc_manager;
 	delete channel_manager;
 	delete itemdb;
-	delete shop;
 	delete timer;
+	db_final();
 }
 
-#include <Poco/DateTime.h>
 
 int main(int argc, char *argv[]) {
 
@@ -40,16 +36,13 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, signal_handler);
 
 		// Initializing
+		db_init();
 		timer = new TimerQueue();
-		unique_s = new unique_id(10000);
-		sdb = new db();
 		crypt = new Crypto();
 		config = new Config();
-		pc_process = new account();
-		pcs = new pc_manager();
+		pc_manager = new PC_Manager();
 		channel_manager = new ChannelManager();
 		itemdb = new ItemDB();
-		shop = new ShopSystem();
 
 		boost::asio::io_context io_context;
 		Socket server(io_context, config->read->GetInteger("game", "port", 20201));

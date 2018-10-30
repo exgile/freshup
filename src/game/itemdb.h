@@ -74,7 +74,7 @@ struct itemdb_normal {
 	struct itemdb_base base;
 	uint32 type;
 	char mpet[NAME_MAX];
-	uint16 status[5];
+	uint16 status[6];
 };
 
 struct itemdb_part {
@@ -185,12 +185,12 @@ public:
 		_GroupDB_destroy();
 	}
 
-	std::vector<std::shared_ptr<itemdb_normal>> item_;
-	std::vector<std::shared_ptr<itemdb_part>> part_;
-	std::vector<std::shared_ptr<itemdb_club>> club_;
-	std::vector<std::shared_ptr<itemdb_ball>> ball_;
-	std::vector<std::shared_ptr<itemdb_card>> card_;
-	std::vector<std::shared_ptr<magicbox>> magicbox_;
+	std::map<uint32, std::shared_ptr<itemdb_normal>> item_data;
+	std::map<uint32, std::shared_ptr<itemdb_part>> part_data;
+	std::map<uint32, std::shared_ptr<itemdb_club>> club_data;
+	std::map<uint32, std::shared_ptr<itemdb_ball>> ball_data;
+	std::map<uint32, std::shared_ptr<itemdb_card>> card_data;
+	std::map<uint32, std::shared_ptr<magicbox>> magicbox_data;
 	std::unordered_map<uint32, item_group_db*> group_db;
 
 	void read_random_group(const char* path_to_file);

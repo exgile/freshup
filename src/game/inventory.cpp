@@ -1,25 +1,24 @@
 #include "inventory.h"
+#include "itemdb.h"
 #include "pc.h"
 
 #include "../common/packet.h"
 #include "../common/db.h"
 #include "../common/utils.h"
 
-#include "itemdb.h"
+#include <boost/format.hpp>
 
-using namespace Poco::Data::Keywords; 
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 PC_Warehouse::PC_Warehouse() :
 	equipment(CREATE_SHARED(PC_Equipment)) {}
 
-void PC_Warehouse::pc_load_data(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-
+void PC_Warehouse::load_data(pc* pc) {
 	/* Load char data from sql */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT * FROM char WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		if (rs.rowCount() <= 0) {
 			pc->disconnect();
@@ -46,9 +45,9 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 	/* load char equipment */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT * FROM char_equip WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		bool done = rs.moveFirst();
 
@@ -73,9 +72,9 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 	/* Load item data from sql */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT * FROM inventory WHERE account_id = ? AND valid = 1", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		bool done = rs.moveFirst();
 
@@ -99,11 +98,11 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 	/* Load ClubSet data from sql */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT A.* FROM club_data A "
 			<< "INNER JOIN inventory B ON B.id = A.item_id AND B.account_id = ? AND B.valid = 1", use(pc->account_id_), now;
 
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		bool done = rs.moveFirst();
 
@@ -127,9 +126,9 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 	/* Load card from sql */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT * FROM card WHERE account_id = ? AND valid = 1", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		bool done = rs.moveFirst();
 		while (done) {
@@ -144,10 +143,10 @@ void PC_Warehouse::pc_load_data(pc* pc) {
 
 	/* Load pc equipment */
 	{
-		Poco::Data::Statement stm(sess);
+		Statement stm(*get_session());
 		stm << "SELECT * FROM equipment WHERE account_id = ?", use(pc->account_id_), now;
 
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		if (rs.rowCount() > 0) {
 			equipment->caddie_id = rs["caddie_id"];
@@ -213,7 +212,7 @@ uint16 PC_Warehouse::get_time_left(PC_ITEM const& item) {
 	return 0;
 }
 
-void PC_Warehouse::pc_send_data(pc* pc, inventory_type type_name) {
+void PC_Warehouse::send_data(pc* pc, inventory_type type_name) {
 
 	Packet p;
 	int count = 0;
@@ -401,8 +400,7 @@ char PC_Warehouse::additem(pc* pc, item* item, bool test_additem, ITEM_TRANSACTI
 	});
 
 	// declare sql variable
-	Poco::Data::Session sess = sdb->get_session();
-	Poco::Data::Statement stm(sess);
+	Statement stm(*get_session());
 
 	int old_amount = 0;
 
@@ -411,23 +409,12 @@ char PC_Warehouse::additem(pc* pc, item* item, bool test_additem, ITEM_TRANSACTI
 	{
 		if (item_find != inventory.end()) return ADDITEM_DUPLICATED;
 		if (test_additem) return ADDITEM_SUCCESS;
-
-		stm << "EXEC sys_make_char ?, ?", use(pc->account_id_), use(item->type_id), now;
-		Poco::Data::RecordSet rs(stm);
-
-		PC_ITEM new_item = std::make_shared<Item>(rs["char_ret_id"], rs["char_ret_typeid"], 1, rs["char_ret_hair"]);
-		inventory.push_back(new_item);
-
-		if (tran)
-			tran->reset(new INV_TRANSACTION(new_item, 0));
-
-		return ADDITEM_SUCCESS;
 	}
 	break;
 	case ITEMDB_CARD:
 	{
 		// if the item can be consumable and valid
-		if ((item_find != inventory.end())) {
+		if (item_find != inventory.end()) {
 			if (test_additem) return ADDITEM_SUCCESS;
 			old_amount = (*item_find)->c0;
 			(*item_find)->c0 += item->amount;
@@ -437,17 +424,27 @@ char PC_Warehouse::additem(pc* pc, item* item, bool test_additem, ITEM_TRANSACTI
 			return ADDITEM_SUCCESS;
 		}
 		if (test_additem) return ADDITEM_SUCCESS;
-
-		stm << "EXEC sys_add_card ?, ?, ?", use(pc->account_id_), use(item->type_id), use(item->amount), now;
-		Poco::Data::RecordSet rs(stm);
-
-		PC_ITEM new_item = std::make_shared<Item>(rs["ret_id"], rs["ret_typeid"], rs["ret_amount"]);
-		inventory.push_back(new_item);
-
-		if (tran)
-			tran->reset(new INV_TRANSACTION(new_item, 0));
-
-		return ADDITEM_SUCCESS;
+	}
+	break;
+	case ITEMDB_USE:
+	{
+		// still have items
+		if (item_find != inventory.end()) {
+			if ((*item_find)->c0 + item->amount >= MAX_AMOUNT_ITEM) {
+				return ADDITEM_STACKLIMIT;
+			}
+			if (test_additem) return ADDITEM_SUCCESS;
+			old_amount = (*item_find)->c0;
+			(*item_find)->c0 += item->amount;
+			(*item_find)->sync = true;
+			if (tran)
+				tran->reset(new INV_TRANSACTION(*item_find, old_amount));
+			return ADDITEM_SUCCESS;
+		}
+		if (item->amount > MAX_AMOUNT_ITEM) {
+			return ADDITEM_STACKLIMIT;
+		}
+		if (test_additem) return ADDITEM_SUCCESS;
 	}
 	break;
 	default:
@@ -456,7 +453,37 @@ char PC_Warehouse::additem(pc* pc, item* item, bool test_additem, ITEM_TRANSACTI
 		break;
 	}
 
-	return ADDITEM_INVALID;
+	stm << "EXEC sys_add_item ?, ?, ?", use(pc->account_id_), use(item->type_id), use(item->amount), now;
+	RecordSet rs(stm);
+
+	if (rs["item_id"] == 0) {
+		return ADDITEM_INVALID;
+	}
+
+	PC_ITEM new_item = std::make_shared<Item>();
+	new_item->item_typeid = rs["item_typeid"];
+	new_item->id = rs["item_id"];
+	new_item->c0 = rs["c0"];
+	new_item->c1 = rs["c1"];
+	new_item->c2 = rs["c2"];
+	new_item->c3 = rs["c3"];
+	new_item->c4 = rs["c4"];
+	new_item->create_date = (Poco::DateTime)rs["create_date"];
+	new_item->end_date = (Poco::DateTime)rs["end_date"];
+	new_item->type = rs["type"];
+	new_item->flag = rs["flag"];
+	new_item->ucc_string = rs["ucc_string"].toString();
+	new_item->ucc_key = rs["ucc_key"].toString();
+	new_item->ucc_state = rs["ucc_state"];
+	new_item->ucc_copy_count = rs["ucc_copy_count"];
+	new_item->ucc_drawer = rs["ucc_drawer"].toString();
+	new_item->hair_colour = rs["hair_colour"];
+
+	inventory.push_back(new_item);
+
+	if (tran)
+		tran->reset(new INV_TRANSACTION(new_item, 0));
+	return ADDITEM_SUCCESS;
 }
 
 char PC_Warehouse::delitem(pc* pc, int item_typeid, int amount, ITEM_TRANSACTION* tran) {
@@ -497,105 +524,6 @@ char PC_Warehouse::delitem(pc* pc, int item_typeid, int amount, ITEM_TRANSACTION
 	return DELITEM_ERROR;
 }
 
-void PC_Warehouse::reload_char_equipment(pc* pc) {
-	Poco::Data::Session sess = sdb->get_session();
-	
-	// Update equipment first
-	{
-		for (auto &chars : inventory) {
-			if (itemdb_type(chars->item_typeid) == ITEMDB_CHAR) {
-				sess << "UPDATE char SET hair_color = ?, c0 = ?, c1 = ?, c2 = ?, c3 = ?, c4 = ? WHERE char_id = ? AND account_id = ?",
-					use(chars->hair_colour),
-					use(chars->c0),
-					use(chars->c1),
-					use(chars->c2),
-					use(chars->c3),
-					use(chars->c4),
-					use(chars->id),
-					use(pc->account_id_), now;
-
-				// update all char equipment
-				for (int i = 0; i < 24; ++i) {
-					sess << "UPDATE char_equip SET item_id = ?, item_typeid = ? WHERE account_id = ? AND char_id = ? AND num = ?",
-						use(chars->equip_index[i]),
-						use(chars->equip_typeid[i]),
-						use(pc->account_id_), 
-						use(chars->id),
-						bind(i + 1);
-				}
-			}
-		}
-	}
-
-	/* Load char data from sql */
-	{
-		Poco::Data::Statement stm(sess);
-		stm << "SELECT * FROM char WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
-
-		bool done = rs.moveFirst();
-
-		while (done) {
-			std::shared_ptr<Item> item = CREATE_SHARED(Item);
-			item->id = rs["char_id"];
-			item->item_typeid = rs["char_typeid"];
-			item->hair_colour = rs["hair_color"];
-			item->c0 = rs["c0"];
-			item->c1 = rs["c1"];
-			item->c2 = rs["c2"];
-			item->c3 = rs["c3"];
-			item->c4 = rs["c4"];
-			item->flag = rs["flag"];
-			inventory.push_back(item);
-			done = rs.moveNext();
-		}
-	}
-
-	/* Load char equipment from database */ 
-	{
-		Poco::Data::Statement stm(sess);
-		stm << "SELECT * FROM char_equip WHERE account_id = ?", use(pc->account_id_), now;
-		Poco::Data::RecordSet rs(stm);
-
-		bool done = rs.moveFirst();
-
-		while (done) {
-			uint32 char_id = rs["char_id"];
-			uint32 item_id = rs["item_id"];
-			uint32 item_typeid = rs["item_typeid"];
-			uint8 item_num = rs["num"];
-
-			auto chars = std::find_if(inventory.begin(), inventory.end(), [&char_id](std::shared_ptr<Item> const& item) {
-				return item->id == char_id;
-			});
-
-			if (chars != inventory.end()) {
-				(*chars)->equip_index[item_num - 1] = item_id;
-				(*chars)->equip_typeid[item_num - 1] = item_typeid;
-			}
-
-			done = rs.moveNext();
-		}
-	}
-}
-
-void PC_Warehouse::show_shopbuyitem(pc* pc, PC_ITEM const& in_item, item* item) {
-	assert(pc && item && in_item);
-
-	Packet p;
-	p.write<uint16>(0xaa);
-	p.write<uint16>(1); // item count
-	p.write<uint32>(in_item->item_typeid);
-	p.write<uint32>(in_item->id);
-	p.write<uint16>(item->day_amount);
-	p.write<uint8>(item->flag);
-	p.write<uint16>(in_item->c0);
-	p.write_datetime(in_item->end_date);
-	p.write_string(in_item->ucc_string, 9);
-	p.write <uint64>(10000000); // pang
-	p.write <uint64>(10000000); // cookie
-	pc->send_packet(&p);
-}
 
 void PC_Warehouse::put_transaction(PC_ITEM const& item) {
 
@@ -664,4 +592,35 @@ void PC_Warehouse::write_current_char(Packet* p) {
 
 	WTIU32(p, 0);
 	WTIU32(p, 0);
+}
+
+void PC_Warehouse::savedata(pc *pc) {
+
+	Poco::Timestamp now;
+
+	int updateCount = 0;
+
+	Statement stm(*get_session());
+
+	std::string sql_string;
+
+	// CARD
+	{
+		boost::format sql_format("UPDATE card SET amount = %1%, valid = %2% WHERE account_id = %3% AND id = %4%;");
+
+		for (auto &it : inventory) {
+			if (itemdb_type(it->item_typeid) == ITEMDB_CARD && it->sync) {
+				sql_string.append( (sql_format % it->c0 % it->valid % pc->account_id_ % it->id).str() );
+				updateCount += 1;
+			}
+		}
+
+		stm << sql_string;
+
+		if (updateCount > 0)
+			stm.execute();
+	}
+
+	Poco::Timestamp::TimeDiff diff = now.elapsed() / 1000;
+	spdlog::get("console")->info("PC saved data takes {} = {}ms", now.elapsed(), diff);
 }

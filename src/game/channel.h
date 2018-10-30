@@ -5,7 +5,8 @@
 
 #include "../common/typedef.h"
 #include "../common/utils.h"
-#include "../common/unique.h"
+
+#define MAX_GAME_LIST 1000
 
 class pc;
 class Packet;
@@ -51,8 +52,7 @@ public:
 	uint16 maxplayer;
 	std::vector<pc*> pc_list;
 
-	std::shared_ptr<unique_id> room_id;
-	std::vector<game*> game_list;
+	game* game_list[MAX_GAME_LIST] = {0};
 
 	uint16 pc_count() { return (uint16)pc_list.size(); }
 	
@@ -69,6 +69,7 @@ public:
 	void sys_game_action(game* game, GAME_UPDATEACTION const& action);
 	void sys_pc_action(pc* pc, PC_GAMEACTION const& action);
 	void sys_gm_command(pc* pc);
+	int sys_get_game_id();
 
 	void pc_enter_lobby(pc* pc);
 	void pc_leave_lobby(pc* pc);

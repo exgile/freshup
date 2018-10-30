@@ -5,19 +5,16 @@
 
 #include "../common/utils.h"
 #include "../common/packet.h"
-#include "../common/unique.h"
 #include "../common/crypto.h"
 
-Session::Session(boost::asio::io_context& io_context) : socket_(io_context), pc_(new pc(unique_s->get(), this)) {}
+Session::Session(boost::asio::io_context& io_context) : socket_(io_context), pc_(pc_manager->pc_new(this)) {}
 
 Session::pointer Session::create(boost::asio::io_context& io_context) {
 	return pointer(new Session(io_context));
 }
 
 Session::~Session() {
-	unique_s->store(pc_->get_connection_id());
-	pcs->pc_remove(pc_);
-	delete pc_;
+	pc_manager->pc_remove(pc_);
 }
 
 boost::asio::ip::tcp::socket& Session::get_socket() {
@@ -29,13 +26,10 @@ void Session::initialise() {
 	boost::asio::ip::tcp::no_delay option(true);
 	socket_.set_option(option);
 
-	// add to pc manager
-	pcs->pc_add(pc_);
-
 	// random key use to decrypt & encrypt packets
 	key_ = rnd_value(1, 15);
 
-	spdlog::get("console")->info("Connection {}:{} connected.", socket_.remote_endpoint().address().to_string(), socket_.remote_endpoint().port());
+	spdlog::get("console")->info("Connection {}:{} connected with index {}", socket_.remote_endpoint().address().to_string(), socket_.remote_endpoint().port(), pc_->get_connection_id());
 
 	// send key to client
 	Packet p;

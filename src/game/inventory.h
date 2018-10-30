@@ -164,19 +164,19 @@ private:
 	std::vector<std::shared_ptr<Club_Data>> club_data_;
 	std::shared_ptr<PC_Equipment> equipment;
 
-	void show_shopbuyitem(pc* pc, PC_ITEM const& in_item, item* item);
 	void put_transaction(PC_ITEM const& item);
-	void reload_char_equipment(pc* pc);
 	int item_count(inventory_type type_name);
 	uint16 get_time_left(PC_ITEM const& item); // as hour
 public:
-	void pc_load_data(pc* pc);
-	void pc_send_data(pc* pc, inventory_type type_name);
+	void load_data(pc* pc);
+	void send_data(pc* pc, inventory_type type_name);
 	void write_current_char(Packet* p);
 	uint32 char_typeid_equiped();
 
 	char additem(pc* pc, item* item, bool test_additem = false, ITEM_TRANSACTION* tran = nullptr);
 	char delitem(pc* pc, int item_typeid, int amount, ITEM_TRANSACTION* tran = nullptr);
+
+	void savedata(pc *pc);
 
 	PC_Warehouse();
 };

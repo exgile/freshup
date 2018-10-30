@@ -32,11 +32,10 @@ void ItemDB::readdb_normal() {
 	f.seekg(4, std::ios::cur);
 	
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<itemdb_normal> it(new itemdb_normal());
+		std::shared_ptr<itemdb_normal> it = CREATE_SHARED(itemdb_normal);
 		f.read((char*)&it->base.enable, sizeof(itemdb_normal));
-		item_.push_back(it);
+		item_data[it->base.item_typeid] = it;
 	}
-
 	f.close();
 }
 
@@ -49,11 +48,10 @@ void ItemDB::readdb_part() {
 	f.seekg(4, std::ios::cur);
 
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<itemdb_part> it(new itemdb_part());
+		std::shared_ptr<itemdb_part> it = CREATE_SHARED(itemdb_part);
 		f.read((char*)&it->base.enable, sizeof(itemdb_part));
-		part_.push_back(it);
+		part_data[it->base.item_typeid] = it;
 	}
-
 	f.close();
 }
 
@@ -66,9 +64,9 @@ void ItemDB::readdb_club() {
 	f.seekg(4, std::ios::cur);
 
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<itemdb_club> it(new itemdb_club());
+		std::shared_ptr<itemdb_club> it = CREATE_SHARED(itemdb_club);
 		f.read((char*)&it->base.enable, sizeof(itemdb_club));
-		club_.push_back(it);
+		club_data[it->base.item_typeid] = it;
 	}
 
 	f.close();
@@ -83,11 +81,10 @@ void ItemDB::readdb_ball() {
 	f.seekg(4, std::ios::cur);
 
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<itemdb_ball> it(new itemdb_ball());
+		std::shared_ptr<itemdb_ball> it = CREATE_SHARED(itemdb_ball);
 		f.read((char*)&it->base.enable, sizeof(itemdb_ball));
-		ball_.push_back(it);
+		ball_data[it->base.item_typeid] = it;
 	}
-
 	f.close();
 }
 
@@ -104,7 +101,7 @@ void ItemDB::readdb_card() {
 	f.seekg(4, std::ios::cur);
 
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<itemdb_card> it(new itemdb_card());
+		std::shared_ptr<itemdb_card> it = CREATE_SHARED(itemdb_card);
 		f.read((char*)&it->base.enable, sizeof(itemdb_card));
 		if (strlen(it->base.name) <= 0) continue;
 
@@ -129,8 +126,7 @@ void ItemDB::readdb_card() {
 		}
 
 		//printf("%d, %s\n" , it->base.item_typeid, it->base.name);
-
-		card_.push_back(it);
+		card_data[it->base.item_typeid] = it;
 	}
 
 	f.close();
@@ -146,11 +142,10 @@ void ItemDB::readdb_magicbox() {
 	f.seekg(6, std::ios::cur);
 
 	for (int i = 1; i <= count; ++i) {
-		std::shared_ptr<magicbox> it(new magicbox());
+		std::shared_ptr<magicbox> it = CREATE_SHARED(magicbox);
 		f.read((char*)&it->id, sizeof(magicbox));
-		magicbox_.push_back(it);
+		magicbox_data[it->id] = it;
 	}
-
 	f.close();
 }
 
@@ -158,42 +153,27 @@ bool ItemDB::exists(uint32 id) {
 	uint8 item_type = itemdb_type(id);
 
 	if (item_type == ITEMDB_USE) {
-		auto find_item = std::find_if(item_.begin(), item_.end(), [&id](std::shared_ptr<itemdb_normal> const& item) {
-			return item->base.item_typeid == id;
-		});
-		if (find_item != item_.end()) {
+		if (item_data.find(id) != item_data.end()) {
 			return true;
 		}
 	}
 	else if (item_type == ITEMDB_PART) {
-		auto find_part = std::find_if(part_.begin(), part_.end(), [&id](std::shared_ptr<itemdb_part> const& part) {
-			return part->base.item_typeid == id;
-		});
-		if (find_part != part_.end()) {
+		if (part_data.find(id) != part_data.end()) {
 			return true;
 		}
 	}
 	else if (item_type == ITEMDB_CLUB) {
-		auto find_club = std::find_if(club_.begin(), club_.end(), [&id](std::shared_ptr<itemdb_club> const& club) {
-			return club->base.item_typeid == id;
-		});
-		if (find_club != club_.end()) {
+		if (club_data.find(id) != club_data.end()) {
 			return true;
 		}
 	}
 	else if (item_type == ITEMDB_BALL) {
-		auto find_ball = std::find_if(ball_.begin(), ball_.end(), [&id](std::shared_ptr<itemdb_ball> const& ball) {
-			return ball->base.item_typeid == id;
-		});
-		if (find_ball != ball_.end()) {
+		if (ball_data.find(id) != ball_data.end()) {
 			return true;
 		}
 	}
 	else if (item_type == ITEMDB_CARD) {
-		auto find_card = std::find_if(card_.begin(), card_.end(), [&id](std::shared_ptr<itemdb_card> const& card) {
-			return card->base.item_typeid == id;
-		});
-		if (find_card != card_.end()) {
+		if (card_data.find(id) != card_data.end()) {
 			return true;
 		}
 	}
@@ -204,11 +184,8 @@ uint32 ItemDB::get_amount(uint32 id) {
 	uint8 item_type = itemdb_type(id);
 
 	if (item_type == ITEMDB_USE) {
-		auto find_item = std::find_if(item_.begin(), item_.end(), [&id](std::shared_ptr<itemdb_normal> const& item) {
-			return item->base.item_typeid == id;
-		});
-		if (find_item != item_.end()) {
-			return (*find_item)->status[0] == 0 ? 1 : (*find_item)->status[0];
+		if (item_data.find(id) != item_data.end()) {
+			return item_data[id]->status[0] == 0 ? 1 : item_data[id]->status[0];
 		}
 	}
 
@@ -219,19 +196,13 @@ std::pair<char, uint32> ItemDB::get_price(uint32 id) {
 	uint8 item_type = itemdb_type(id);
 
 	if (item_type == ITEMDB_USE) {
-		auto find_item = std::find_if(item_.begin(), item_.end(), [&id](std::shared_ptr<itemdb_normal> const& item) {
-			return item->base.item_typeid == id;
-		});
-		if (find_item != item_.end()) {
-			return std::make_pair((*find_item)->base.price_type, (*find_item)->base.true_price > 0 ? (*find_item)->base.true_price : (*find_item)->base.price);
+		if (item_data.find(id) != item_data.end()) {
+			return std::make_pair(item_data[id]->base.price_type, item_data[id]->base.true_price > 0 ? item_data[id]->base.true_price : item_data[id]->base.price);
 		}
 	}
 	else if (item_type == ITEMDB_CARD) {
-		auto find_card = std::find_if(card_.begin(), card_.end(), [&id](std::shared_ptr<itemdb_card> const& card) {
-			return card->base.item_typeid == id;
-		});
-		if (find_card != card_.end()) {
-			return std::make_pair((*find_card)->base.price_type, (*find_card)->base.true_price > 0 ? (*find_card)->base.true_price : (*find_card)->base.price);
+		if (card_data.find(id) != card_data.end()) {
+			return std::make_pair(card_data[id]->base.price_type, card_data[id]->base.true_price > 0 ? card_data[id]->base.true_price : card_data[id]->base.price);
 		}
 	}
 
@@ -242,19 +213,13 @@ bool ItemDB::buyable(uint32 id) {
 	uint8 item_type = itemdb_type(id);
 
 	if (item_type == ITEMDB_USE) {
-		auto find_item = std::find_if(item_.begin(), item_.end(), [&id](std::shared_ptr<itemdb_normal> const& item) {
-			return item->base.item_typeid == id;
-		});
-		if (find_item != item_.end()) {
-			return (*find_item)->base.flag & 1;
+		if (item_data.find(id) != item_data.end()) {
+			return item_data[id]->base.flag & 1;
 		}
 	}
 	else if (item_type == ITEMDB_CARD) {
-		auto find_card = std::find_if(card_.begin(), card_.end(), [&id](std::shared_ptr<itemdb_card> const& card) {
-			return card->base.item_typeid == id;
-		});
-		if (find_card != card_.end()) {
-			return (*find_card)->base.flag & 1;
+		if (card_data.find(id) != card_data.end()) {
+			return card_data[id]->base.flag & 1;
 		}
 	}
 
@@ -317,17 +282,17 @@ void ItemDB::pc_use_cardpack(pc* pc) {
 
 	uint32 card_typeid = pc->read<uint32>();
 
-	ITEM_TRANSACTION card_ret = CREATE_SHARED(INV_TRANSACTION);
-	char ret = pc->warehouse->delitem(pc, card_typeid, 1, &card_ret);
+	std::vector<uint32> pack_data = get_cardpack(card_typeid);
 
-	if (ret != DELITEM_SUCCESS) {
+	if (!(uint8)pack_data.size()) {
 		clif_pc_opencard_failed(pc);
 		return;
 	}
 
-	std::vector<uint32> pack_data = get_cardpack(card_typeid);
+	ITEM_TRANSACTION card_ret = CREATE_SHARED(INV_TRANSACTION);
+	char ret = pc->warehouse->delitem(pc, card_typeid, 1, &card_ret);
 
-	if (!(uint8)pack_data.size()) {
+	if (ret != DELITEM_SUCCESS) {
 		clif_pc_opencard_failed(pc);
 		return;
 	}

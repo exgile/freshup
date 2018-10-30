@@ -97,7 +97,7 @@ void ChannelManager::send_success(pc* pc)
 
 /* Channel */
 
-Channel::Channel() : room_id(std::make_shared<unique_id>(1000)) 
+Channel::Channel()
 {
 	timer->add(10000, true, [this](bool abort) {
 		game_destroy();
@@ -106,16 +106,11 @@ Channel::Channel() : room_id(std::make_shared<unique_id>(1000))
 
 void Channel::game_destroy(void)
 {
-	game_list.erase(
-		std::remove_if(game_list.begin(), game_list.end(), [this](game* game) {
-		if (game->valid) {
-			return false;
+	for (int i = 0; i < MAX_GAME_LIST; i++) {
+		if (game_list[i] && !game_list[i]->valid) {
+			NULL_POINTER(game_list[i]);
 		}
-		else {
-			room_id->store(game->roomId);
-			return true;
-		}
-	}), game_list.end());
+	}
 }
 
 void Channel::pc_enter_lobby(pc* pc) 
@@ -151,7 +146,7 @@ void Channel::pc_quit_lobby(pc* pc)
 {
 	sys_verify_pc(pc);
 
-	auto it = std::find(std::begin(pc_list), std::end(pc_list), pc);
+	auto it = std::find( pc_list.begin(), pc_list.end(), pc);
 
 	if (it == std::end(pc_list)) {
 		return;
@@ -204,10 +199,8 @@ void Channel::pc_send_message(pc* sd)
 
 game* Channel::sys_getgame_byid(uint32 room_id)
 {
-	for (auto &it : game_list) {
-		if (it->roomId == room_id) {
-			return it;
-		}
+	if (game_list[room_id]) {
+		return game_list[room_id];
 	}
 
 	return nullptr;
@@ -272,10 +265,10 @@ void Channel::sys_send_game_list(pc* pc)
 {
 	int16 count = 0;
 
-	for (auto &it : game_list)
-	{
-		if (it->valid)
+	for (int i = 0; i < MAX_GAME_LIST; ++i) {
+		if (game_list[i] && game_list[i]->valid) {
 			count += 1;
+		}
 	}
 
 	Packet p;
@@ -283,10 +276,10 @@ void Channel::sys_send_game_list(pc* pc)
 	WTIU16(&p, count);
 	WTI16(&p, -1);
 
-	for (auto &it : game_list)
-	{
-		if (it->valid)
-			it->roomdata(&p);
+	for (int i = 0; i < MAX_GAME_LIST; ++i) {
+		if (game_list[i] && game_list[i]->valid) {
+			game_list[i]->roomdata(&p);
+		}
 	}
 
 	pc->send_packet(&p);
@@ -359,6 +352,19 @@ void Channel::sys_veriy_game(game* game)
 	if (game == nullptr)
 		return throw GameNotFoundOnChannel();
 
-	if (!VECTOR_FIND(game_list, game))
+	int game_id = game->roomId;
+
+	if (game_list[game_id] != game) {
 		throw GameNotFoundOnChannel();
+	}
+}
+
+int Channel::sys_get_game_id() {
+	for (int i = 0; i < MAX_GAME_LIST; ++i) {
+		if (game_list[i] == nullptr) {
+			return i;
+		}
+	}
+
+	return -1;
 }

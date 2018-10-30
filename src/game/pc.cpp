@@ -18,6 +18,9 @@ pc::pc(int con_id, Session *session) :
 
 pc::~pc() { 
 
+	// save inventory data
+	warehouse->savedata(this);
+
 	if (channel_) {
 		if (game != nullptr) {
 			channel_->pc_leave_game(this);
@@ -64,13 +67,15 @@ void pc::handle_packet(unsigned short bytes_recv) {
 	}
 	printf("\n");
 
+	Poco::Timestamp now;
+
 	try {
 		switch (packet_id) {
 		case packet::pc_send_message:
 			channel_->pc_send_message(this);
 			break;
 		case packet::pc_login:
-			pc_process->pc_login(this);
+			pc_req_login(this);
 			break;
 		case packet::pc_select_channel:
 			channel_manager->pc_select_channel(this);
@@ -103,19 +108,19 @@ void pc::handle_packet(unsigned short bytes_recv) {
 			channel_->sys_gm_command(this);
 			break;
 		case packet::pc_enter_shop:
-			shop->pc_entershop(this);
+			pc_req_entershop(this);
 			break;
 		case packet::pc_buyitem:
-			shop->pc_buyitem(this);
+			pc_req_buyitem(this);
 			break;
 		case packet::pc_open_cardpack:
 			itemdb->pc_use_cardpack(this);
 			break;
 		case packet::pc_loadmail_:
-			pc_loadmail(this);
+			pc_req_loadmail(this);
 			break;
 		case packet::pc_readmail_:
-			pc_readmail(this);
+			pc_req_readmail(this);
 			break;
 		default:
 			break;
@@ -136,6 +141,9 @@ void pc::handle_packet(unsigned short bytes_recv) {
 		spdlog::get("console")->critical("Unknown Exception Occured!");
 		disconnect();
 	}
+
+	Poco::Timestamp::TimeDiff diff = now.elapsed() / 1000;
+	spdlog::get("console")->info("PC last processed took {} = {}ms", now.elapsed(), diff);
 
 }
 
