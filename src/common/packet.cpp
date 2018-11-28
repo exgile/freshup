@@ -1,6 +1,6 @@
 #include "packet.h"
+#include "utils.h"
 #include <fstream> 
-#include <Poco/LocalDateTime.h>
 
 Packet::Packet() : length_(0), buffer_size_(kInitialSize), buffer_(new unsigned char[kInitialSize]()){}
 
@@ -22,7 +22,7 @@ void Packet::write_hex(const unsigned char* hex, int size){
 
 void Packet::write_datetime() {
 	if (buffer_) {
-		Poco::LocalDateTime now;
+		Poco::DateTime now = localtime();
 
 		if (length_ + 16 >= buffer_size_) {
 			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + 16);
@@ -49,7 +49,6 @@ void Packet::write_datetime(Poco::DateTime const& datetime) {
 			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + 16);
 			buffer_size_ += 16;
 		}
-
 
 		*(unsigned __int16*)(buffer_ + length_) = datetime.year();
 		*(unsigned __int16*)(buffer_ + length_ + 2) = datetime.month();

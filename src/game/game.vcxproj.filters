@@ -48,9 +48,6 @@
     <ClInclude Include="static.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="struct.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="session.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -61,6 +58,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="gameplay.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="packetdb.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="packetParser.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -107,14 +110,23 @@
     <ClCompile Include="gameplay.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="pc_game.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="gameplay_chatroom.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="gameplay_stroke.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="packetdb.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="packetParser.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="gameplay_practice.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
 </Project>

@@ -28,7 +28,7 @@ void game_chatroom::send_pc_join(pc *pc) {
 			WTI16(&p, -1);
 			WTIU08(&p, (uint8)pc_list.size());
 			pl->gamedata(&p, true);
-			pc->send_packet(&p);
+			pc->send(&p);
 		}
 	}
 
@@ -40,5 +40,42 @@ void game_chatroom::send_pc_join(pc *pc) {
 		WTI16(&p, -1);
 		pc->gamedata(&p, true);
 		send(&p);
+	}
+}
+
+void game_chatroom::pc_req_gamedata(pc * pc)
+{
+
+}
+
+void game_chatroom::pc_loadmap_success(pc * pc)
+{
+}
+
+void game_chatroom::addmaster(pc * pc)
+{
+	game::addmaster(pc);
+	channel->sys_game_action(this, gCreate);
+	channel->sys_pc_action(pc, lbUpdate);
+}
+
+void game_chatroom::pc_req_leave_game(pc * pc)
+{
+	if (pc_remove(pc)) {
+		pc->game = nullptr;
+		pc->game_id = -1;
+		pc->channel_->sys_pc_action(pc, lbUpdate);
+
+		sys_send_pcleave(pc); // send to all users in the room
+
+		if ((uint8)pc_list.size() == 0) {
+			valid = false;
+			channel->sys_game_action(this, gDestroy);
+		}
+		else {
+			channel->sys_game_action(this, gUpdate);
+		}
+
+		channel->send_pc_leave_game(pc);
 	}
 }

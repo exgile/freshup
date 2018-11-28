@@ -79,7 +79,8 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)plugin\boost;$(SolutionDir)plugin\poco\Foundation\include;$(SolutionDir)plugin\poco\Data\include;$(SolutionDir)plugin\poco\Data\ODBC\include;$(SolutionDir)plugin\spdlog;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>POCO_STATIC;_WIN32_WINNT=0x0600;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WIN32_WINNT=0x0600;POCO_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
     </ClCompile>
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
@@ -127,6 +128,8 @@
     <ClInclude Include="inventory.h" />
     <ClInclude Include="itemdb.h" />
     <ClInclude Include="mail.h" />
+    <ClInclude Include="packetdb.h" />
+    <ClInclude Include="packetParser.h" />
     <ClInclude Include="pc.h" />
     <ClInclude Include="pc_manager.h" />
     <ClInclude Include="reader.h" />
@@ -134,7 +137,6 @@
     <ClInclude Include="shop.h" />
     <ClInclude Include="socket.h" />
     <ClInclude Include="static.h" />
-    <ClInclude Include="struct.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="account.cpp" />
@@ -143,17 +145,22 @@
     <ClCompile Include="game.cpp" />
     <ClCompile Include="gameplay.cpp" />
     <ClCompile Include="gameplay_chatroom.cpp" />
+    <ClCompile Include="gameplay_practice.cpp" />
     <ClCompile Include="gameplay_stroke.cpp" />
     <ClCompile Include="inventory.cpp" />
     <ClCompile Include="itemdb.cpp" />
     <ClCompile Include="mail.cpp" />
+    <ClCompile Include="packetdb.cpp" />
     <ClCompile Include="pc.cpp" />
-    <ClCompile Include="pc_game.cpp" />
+    <ClCompile Include="packetParser.cpp" />
     <ClCompile Include="pc_manager.cpp" />
     <ClCompile Include="reader.cpp" />
     <ClCompile Include="session.cpp" />
     <ClCompile Include="shop.cpp" />
     <ClCompile Include="socket.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="ClassDiagram.cd" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -31,7 +31,7 @@ void game_stroke::send_pc_join(pc *pc) {
 			it->gamedata(&p, true);
 		}
 		WTIU08(&p, 0);
-		pc->send_packet(&p);
+		pc->send(&p);
 	}
 
 	// query this pc to all
@@ -45,12 +45,38 @@ void game_stroke::send_pc_join(pc *pc) {
 	}
 }
 
-void game_stroke::sys_calc_pcslot()
+void game_stroke::pc_req_gamedata(pc * pc)
 {
-	int slot = 1;
+}
 
-	for (auto &it : pc_list) {
-		it->game_slot = slot;
-		slot += 1;
+void game_stroke::pc_loadmap_success(pc * pc)
+{
+}
+
+void game_stroke::addmaster(pc * pc)
+{
+	game::addmaster(pc);
+	channel->sys_game_action(this, gCreate);
+	channel->sys_pc_action(pc, lbUpdate);
+}
+
+void game_stroke::pc_req_leave_game(pc * pc)
+{
+	if (pc_remove(pc)) {
+		pc->game = nullptr;
+		pc->game_id = -1;
+		pc->channel_->sys_pc_action(pc, lbUpdate);
+
+		sys_send_pcleave(pc); // send to all users in the room
+
+		if ((uint8)pc_list.size() == 0) {
+			valid = false;
+			channel->sys_game_action(this, gDestroy);
+		}
+		else {
+			channel->sys_game_action(this, gUpdate);
+		}
+
+		channel->send_pc_leave_game(pc);
 	}
 }

@@ -2,16 +2,15 @@
 
 #include <string>
 #include <vector>
-#include <Poco/LocalDateTime.h>
+#include <unordered_map>
 #include <Poco/DateTime.h>
-#include "itemdb.h"
-
+#include "../common/utils.h"
 #include "../common/typedef.h"
 
 #define MAX_AMOUNT_ITEM 30000
 #define pc_item_isrent(flag) ( (flag == ITEMDB_PERIOD) || (flag == ITEMDB_SKIN_PERIOD) || (flag == ITEMDB_PART_RENT) )
 
-class pc;
+struct pc;
 class Packet;
 struct Item;
 struct INV_TRANSACTION;
@@ -59,7 +58,7 @@ enum find_by {
 struct item {
 	uint8 item_type = 2;
 	uint32 type_id;
-	uint16 amount;
+	uint32 amount;
 	uint16 day_amount = 0;
 	uint8 flag;
 	std::string ucc_string = "";
@@ -76,8 +75,6 @@ struct PC_Equipment {
 	uint32 poster1;
 	uint32 poster2;
 };
-
-/* New implement */
 
 struct Item {
 	uint32 id;
@@ -118,8 +115,8 @@ struct INV_TRANSACTION {
 	uint32 item_typeid;
 	uint32 old_amount = 0;
 	uint32 new_amount = 0;
-	uint32 timestamp_reg = 0;
-	uint32 timestamp_end = 0;
+	Poco::DateTime date_reg;
+	Poco::DateTime date_end;
 	std::string ucc_unique = "";
 	uint8 ucc_status = 0;
 	uint8 ucc_copycount = 0;
@@ -143,6 +140,8 @@ struct INV_TRANSACTION {
 		c2 = item->c2;
 		c3 = item->c3;
 		c4 = item->c4;
+		date_reg = item->create_date;
+		date_end = item->end_date;
 	}
 
 	INV_TRANSACTION() {};
@@ -158,25 +157,16 @@ struct Club_Data {
 	uint32 pang_total = 0;
 };
 
-struct PC_Warehouse {
-private:
-	std::vector<PC_ITEM> inventory;
-	std::vector<std::shared_ptr<Club_Data>> club_data_;
-	std::shared_ptr<PC_Equipment> equipment;
+void pc_load_data(pc* pc);
+void pc_sync_data(pc* pc, inventory_type type_name);
+int item_count(pc *pc, inventory_type type_name);
 
-	void put_transaction(PC_ITEM const& item);
-	int item_count(inventory_type type_name);
-	uint16 get_time_left(PC_ITEM const& item); // as hour
-public:
-	void load_data(pc* pc);
-	void send_data(pc* pc, inventory_type type_name);
-	void write_current_char(Packet* p);
-	uint32 char_typeid_equiped();
+uint16 get_time_left(PC_ITEM const& item); // AS HOUR
+void write_current_char(pc *pc, Packet* p);
+uint32 char_typeid_equiped(pc *pc);
 
-	char additem(pc* pc, item* item, bool test_additem = false, ITEM_TRANSACTION* tran = nullptr);
-	char delitem(pc* pc, int item_typeid, int amount, ITEM_TRANSACTION* tran = nullptr);
+char pc_additem(pc *pc, item *item, bool test_additem = false, ITEM_TRANSACTION* tran = nullptr);
+char pc_delitem(pc *pc, int item_typeid, int amount, ITEM_TRANSACTION* tran = nullptr);
+void pc_savedata(pc *pc);
 
-	void savedata(pc *pc);
-
-	PC_Warehouse();
-};
+bool setchar(pc *pc, uint32 charid);

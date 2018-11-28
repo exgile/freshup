@@ -8,15 +8,9 @@ typedef cdecl void(*DecryptFunc)(unsigned char*, int, int);
 typedef cdecl void(*EncryptFunc)(unsigned char*, int, int, unsigned char**, int*);
 typedef cdecl void(*FreeMemFunc)(unsigned char**);
 
-class Crypto {
-private:
-	HINSTANCE hInst;
-public:
-	Crypto();
-	~Crypto();
-	DecryptFunc Decrypt = nullptr;
-	EncryptFunc Encrypt = nullptr;
-	FreeMemFunc _FreeMem = nullptr;
-};
+void crypt_init();
+void crypt_final();
 
-extern Crypto* crypt;
+extern DecryptFunc decrypt;
+extern EncryptFunc encrypt;
+extern FreeMemFunc freemem;

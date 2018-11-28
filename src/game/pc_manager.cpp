@@ -1,11 +1,19 @@
 #include "pc_manager.h"
 #include "pc.h"
-#include "../common/packet.h"
 
-PC_Manager* pc_manager = nullptr;
+PC_Manager* pcm = nullptr;
 
 PC_Manager::PC_Manager(){}
+
 PC_Manager::~PC_Manager() {}
+
+void PC_Manager::kickall() {
+	for (int p = 0; p < MAX_PLAYER; ++p) {
+		if (pc_list[p] != nullptr) {
+			pc_list[p]->disconnect();
+		}
+	}
+}
 
 pc* PC_Manager::pc_new(Session* session) {
 	int index = -1;
@@ -34,8 +42,8 @@ void PC_Manager::pc_remove(pc* pc) {
 
 void PC_Manager::broadcast(Packet* packet) {
 	for (int p = 0; p < MAX_PLAYER; p++) {
-		if (pc_list[p]) {
-			pc_list[p]->send_packet(packet);
+		if (pc_list[p] != nullptr) {
+			pc_list[p]->send(packet);
 		}
 	}
 }

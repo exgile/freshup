@@ -10,7 +10,6 @@ class Packet;
 class Channel;
 class game;
 
-
 #pragma pack(push, 1)
 struct Pos3D {
 	float x;
@@ -27,118 +26,171 @@ struct Pos3D {
 		z = 0;
 	}
 };
+
+struct statistics {
+	uint32 drive;
+	uint32 putt;
+	uint32 playertime;
+	uint32 shottime;
+	float longestdistance;
+	uint32 pangya;
+	uint32 timeout;
+	uint32 ob;
+	uint32 distancetotal;
+	uint32 hole;
+	uint32 teamhole;
+	uint32 holeinone;
+	uint16 bunker;
+	uint32 fairway;
+	uint32 albratoss;
+	uint32 holein;
+	uint32 puttin;
+	float longestputt;
+	float longestchip;
+	uint32 exp;
+	uint8 level;
+	uint64 pang;
+	uint32 totalscore;
+	uint8 score[5];
+	uint8 un1 = 0;
+	uint64 maxpang[5];
+	uint64 sumpang;
+	uint32 gameplayed;
+	uint32 disconnected;
+	uint32 teamwin;
+	uint32 teamgame;
+	uint32 ladderpoint;
+	uint32 ladderwin;
+	uint32 ladderlose;
+	uint32 ladderdraw;
+	uint32 ladderhole;
+	uint32 combocount;
+	uint32 maxcombo;
+	uint32 nomannergamecount;
+	uint64 skinspang;
+	uint32 skinswin;
+	uint32 skinslose;
+	uint32 skinsrunhole;
+	uint32 skinsstrikepoint;
+	uint32 skinsallincount;
+	uint8 un2[6];
+	uint32 gamecountseason;
+	uint8 un3[8];
+};
 #pragma pack(pop)
 
-class pc {
-	public:
-		int recv_length_;
-		int recv_pos_;
-		Session *session_;
-		std::string ip_;
+struct pc {
+	int recv_length_;
+	int recv_pos_;
+	Session *session_;
+	std::string ip_;
 
-		int connection_id_;
-		int account_id_;
+	int connection_id_;
+	int account_id_;
 
-		std::shared_ptr<PC_Warehouse> warehouse;
+	std::string login_key;
+	std::string game_key;
+	std::string username_;
+	std::string name_;
+	int sex_;
+	int capability_ = 0;
+	uint32 cookie;
 
-		std::string login_key;
-		std::string game_key;
-		std::string username_;
-		std::string name_;
-		int sex_;
-		int capability_ = 0;
+	// Item Container
+	std::vector<PC_ITEM> inventory;
+	std::unordered_map<uint32, std::shared_ptr<Club_Data>> club_data_;
+	std::shared_ptr<PC_Equipment> equipment;
+	std::vector<std::pair<uint8, ITEM_TRANSACTION>> transaction;
 
-		int test = 1;
-		// temporarily sync money (pang, cookie)
-		void sync_money();
+	uint32 itemuse[10];
 
-		Channel* channel_ = nullptr;
-		bool channel_in_ = false;
+	// Statistic
+	std::unique_ptr<statistics> state;
 
-		game* game = nullptr;
-		__int16 game_id = -1;
-		uint8 game_role = 1;
-		uint8 game_slot;
-		bool game_ready = false;
-		Pos3D game_position;
-		uint32 posture = 0;
-		uint32 animate = 0;
+	Channel* channel_;
+	bool channel_in_ = false;
 
-		pc(int con_id, Session *session);
-		~pc(); 
-		int get_connection_id();
-		void disconnect();
-		void skip(int amount);
-		void send_packet(Packet *packet);
-		void send_packet_undecrypt(Packet *packet);
-		void handle_packet(unsigned short bytes_recv);
-		void gamedata(Packet* p, bool with_equip = false);
+	game* game;
+	__int16 game_id = -1;
+	uint8 game_role = 1;
+	uint8 game_slot;
+	bool game_ready = false;
+	Pos3D game_position;
+	uint32 posture = 0;
+	uint32 animate = 0;
 
-		void change_equipment();
-		 
+	// game play variables
+	uint8 gameplay_parcount = 0;
+	uint8 gameplay_holepos = 0;
+	uint32 gameplay_pang = 0;
+	uint32 gameplay_bonuspang = 0;
 
-		template<typename TYPE> TYPE read() {
-			if ((recv_length_ - recv_pos_) < sizeof TYPE) throw ReadPacketError();
-			TYPE val;
-			memcpy(&val, (session_->get_receive_buffer() + recv_pos_), sizeof TYPE);
-			recv_pos_ += sizeof TYPE;
-			return val;
-		}
 
-		template<> bool read<bool>() {
-			return read<signed char>() != 0;
-		}
+	pc(int con_id, Session *session);
+	~pc();
+	int get_connection_id();
+	void disconnect();
+	void skip(int amount);
+	void send(Packet *packet);
+	void send_packet_undecrypt(Packet *packet);
+	void handle_packet(unsigned short bytes_recv);
+	void gamedata(Packet* p, bool with_equip = false);
 
-		void read(char* data, std::size_t size) {
-			if ((recv_length_ - recv_pos_) < size) throw ReadPacketError();
-			memcpy(data, (session_->get_receive_buffer() + recv_pos_), size);
-			recv_pos_ += size;
-		}
+	void transaction_push(uint8 key, ITEM_TRANSACTION tran);
+	void transaction_sync();
 
-		template<> std::string read<std::string>() {
-			int len = read<short>();
+	bool removepang(int amount);
+	bool removecookie(int amount);
 
-			if (recv_length_ <= recv_pos_)
-				return "";
+	void sendpang();
+	void sendcookie();
 
-			if (len > (recv_length_ - recv_pos_)) { return ""; }
-			std::string s((char*)session_->get_receive_buffer() + recv_pos_, len);
-			recv_pos_ += len;
-			return s;
-		}
-};
+	void change_equipment();
 
-enum packet {
-	pc_login = 2,
-	pc_send_message = 3,
-	pc_select_channel = 4,
-	pc_create_game_ = 8,
-	pc_join_game = 9,
-	pc_game_config = 10,
-	pc_change_equipment = 12,
-	pc_leave_room = 15,
-	pc_room_action = 99,
-	pc_enter_lobby_ = 129,
-	pc_leave_lobby_ = 130,
-	pc_gm_command = 143,
-	pc_open_cardpack = 202, 
+	void load_statistics();
 
-	pc_buyitem = 29,
-	pc_enter_shop = 320,
+	template<typename TYPE> TYPE read() {
+		if ((recv_length_ - recv_pos_) < sizeof TYPE) throw ReadPacketError();
+		TYPE val;
+		memcpy(&val, (session_->get_receive_buffer() + recv_pos_), sizeof TYPE);
+		recv_pos_ += sizeof TYPE;
+		return val;
+	}
 
-	/* mail system */
-	pc_loadmail_ = 0x143,
-	pc_readmail_ = 0x144
+	template<> bool read<bool>() {
+		return read<signed char>() != 0;
+	}
+
+	void read(char* data, std::size_t size) {
+		if ((recv_length_ - recv_pos_) < size) throw ReadPacketError();
+		memcpy(data, (session_->get_receive_buffer() + recv_pos_), size);
+		recv_pos_ += size;
+	}
+
+	bool readstruct(char* data, std::size_t size) { // Read data into struct, class with fix size
+		if ((recv_length_ - recv_pos_) != size) return false;
+		memcpy(data, (session_->get_receive_buffer() + recv_pos_), size);
+		recv_pos_ += size;
+		return true;
+	}
+
+	template<> std::string read<std::string>() {
+		int len = read<short>();
+
+		if (recv_length_ <= recv_pos_)
+			return "";
+
+		if (len > (recv_length_ - recv_pos_)) { return ""; }
+		std::string s((char*)session_->get_receive_buffer() + recv_pos_, len);
+		recv_pos_ += len;
+		return s;
+	}
 };
 
 enum {
-	e_caddie = 1,
-	e_club = 3,
-	e_char = 4,
-	e_mascot = 5,
-	e_start = 7
+	eqcaddie = 1,
+	eqclub = 3,
+	eqChar = 4,
+	eqmascot = 5,
+	eqstart = 7
 };
-
-// pc game function
-void pc_roomaction(pc* pc);
-void game_setting(pc* pc);

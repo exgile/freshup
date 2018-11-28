@@ -10,7 +10,7 @@ void pc_req_loadmail(pc* pc) {
 	int page_select = RTIU32(pc);
 	int page_total = 0;
 
-	Poco::Data::Statement stm(*get_session());
+	Statement stm(*get_session());
 
 	// select mail total from sql
 	stm << "SELECT COUNT(mail_id) AS MAIL_TOTAL FROM mail WHERE account_id = ?", into(page_total), use(pc->account_id_), now;
@@ -19,7 +19,7 @@ void pc_req_loadmail(pc* pc) {
 	page_total = (uint32)ceil(page_total * 1.0 / 20);
 
 	// select mail data
-	Poco::Data::Statement stm2(*get_session());
+	Statement stm2(*get_session());
 	stm2 << "SELECT A.mail_id, B.name, C.item_count,"
 		<< "typeid = ISNULL(D.typeid, 0), set_typeid = ISNULL(D.set_typeid, 0), amount = ISNULL(D.amount, 0), day = ISNULL(D.day, 0), ucc, "
 		<< "(CASE WHEN A.read_date IS NULL THEN 0 ELSE 1 END) AS mail_read "
@@ -35,7 +35,7 @@ void pc_req_loadmail(pc* pc) {
 		<< ") D "
 		<< "WHERE A.account_id = ? AND delete_date IS NULL", use(pc->account_id_), now;
 
-	Poco::Data::RecordSet rs(stm2);
+	RecordSet rs(stm2);
 
 	bool done = rs.moveFirst();
 
@@ -65,7 +65,7 @@ void pc_req_loadmail(pc* pc) {
 		done = rs.moveNext();
 	}
 
-	pc->send_packet(&p);
+	pc->send(&p);
 }
 
 void pc_req_readmail(pc* pc) {
@@ -74,13 +74,13 @@ void pc_req_readmail(pc* pc) {
 	Packet p;
 
 	{
-		Poco::Data::Statement stm(*get_session());
+		Statement stm(*get_session());
 
 		stm << "SELECT A.account_id, A.mail_id, A.message, CONVERT(VARCHAR, A.reg_date) AS date, B.name FROM mail A "
 			<< "LEFT JOIN account B ON  B.account_id = A.sender "
 			<< "WHERE A.account_id = ? AND A.mail_id = ?", use(pc->account_id_), use(mail_id), now;
 
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 
 		if (rs.rowCount() <= 0) return;
 
@@ -94,9 +94,9 @@ void pc_req_readmail(pc* pc) {
 	}
 
 	{
-		Poco::Data::Statement stm(*get_session());
+		Statement stm(*get_session());
 		stm << "SELECT typeid, day, amount FROM mail_item WHERE mail_id = ?", use(mail_id), now;
-		Poco::Data::RecordSet rs(stm);
+		RecordSet rs(stm);
 		bool done = rs.moveFirst();
 
 		WTIU32(&p, (uint32) rs.rowCount());
@@ -116,5 +116,5 @@ void pc_req_readmail(pc* pc) {
 		}
 	}
 
-	pc->send_packet(&p);
+	pc->send(&p);
 }

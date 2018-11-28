@@ -2,7 +2,7 @@
 #include <string>
 #include "../common/typedef.h"
 
-class pc;
+struct pc;
 
 struct mail_data {
 	uint32 mail_id;

@@ -37,9 +37,6 @@ void game::addmaster(pc *pc)
 	gameupdate();
 	roomdata(pc);
 	send_pc_create(pc);
-
-	channel->sys_game_action(this, gCreate);
-	channel->sys_pc_action(pc, lbUpdate);
 }
 
 void game::addpc(pc *pc)
@@ -74,7 +71,7 @@ void game::genkey()
 void game::send(Packet *p)
 {
 	std::for_each(pc_list.begin(), pc_list.end(), [p](pc* pc) {
-		pc->send_packet(p);
+		pc->send(p);
 	});
 }
 
@@ -193,16 +190,15 @@ void game::pc_chat(pc* pc, Packet *p) {
 
 void game::sys_verify_pc(pc *pc)
 {
-	if (!VECTOR_FIND(pc_list, pc)) {
+	if ( std::find(std::begin(pc_list), std::end(pc_list), pc) == std::end(pc_list) ) {
 		throw "PC not found.";
 	}
 }
 
-void game::sys_inspec()
+void game::sys_shotdecrypt(char * data, std::size_t size)
 {
-	if ((uint8)pc_list.size() == 0) {
-		valid = false;
-		channel->sys_game_action(this, gDestroy);
+	for (int i = 0; i < size; ++i) {
+		data[i] = data[i] ^ gameKey[i % 16];
 	}
 }
 
@@ -262,7 +258,7 @@ void game::roomdata(Packet *p)
 	WTIU32(p, 100);
 	WTIU32(p, 100);
 	WTIU32(p, owner_uid);
-	WTIU08(p, 0xFF); // PRACTICE?
+	WTIU08(p, practicetype == tNone ? 0xFF : 0x13); // PRACTICE?
 	WTIU32(p, 0); // ARTIFACT
 	WTIU32(p, natural);
 	WTIU32(p, 0); // GRANDPRIX 1
@@ -286,5 +282,80 @@ void game::roomdata(pc *pc)
 	WTHEAD(&p, 0x49);
 	WTIU16(&p, 0);
 	roomdata(&p);
-	pc->send_packet(&p);
+	pc->send(&p);
+}
+
+void game::sys_calc_pcslot() {
+	int slot = 1;
+
+	for (auto &it : pc_list) {
+		it->game_slot = slot;
+		slot += 1;
+	}
+}
+
+void game::hole_init() 
+{
+	std::vector<int> rnd_weather = { 100, 5, 4 };
+
+	for (auto &hole : holes) {
+		hole.weather = rnd_weight(rnd_weather) - 1;
+		hole.windpower = rnd() % 9;
+		hole.winddirection = rnd() % 255;
+		hole.map = map;
+	}
+}
+
+void game::pc_req_holesync(pc *pc) {
+	pc->gameplay_holepos = RTIU32(pc);
+	RSKIP(pc, 5);
+	pc->gameplay_parcount = RTIU08(pc);
+	RSKIP(pc, 8);
+	pc->game_position.x = RTFLO(pc);
+	pc->game_position.z = RTFLO(pc);
+
+	Packet p;
+
+	// send weather
+	WTHEAD(&p, 0x9E);
+	WTIU16(&p, holes[pc->gameplay_holepos].weather);
+	WTIU08(&p, 0);
+	pc->send(&p);
+
+	WRESET(&p);
+
+	// send wind data
+	WTHEAD(&p, 0x5B);
+	WTIU16(&p, holes[pc->gameplay_holepos].windpower);
+	WTIU16(&p, holes[pc->gameplay_holepos].winddirection);
+	WTIU08(&p, 1);
+	pc->send(&p);
+}
+
+void game::pc_req_sync_shotdata(pc * pc)
+{
+	matchdata data;
+	RTPOINTER(pc, &data.connection_id, sizeof(matchdata));
+
+	// Decrypt Shot
+	sys_shotdecrypt((char*)&data.connection_id, sizeof(matchdata));
+
+	Packet p;
+	WTPOINTER(&p, &data.connection_id, sizeof(matchdata));
+
+}
+
+void game::startgame() {
+	Packet p;
+	WTHEAD(&p, 0x230);
+	send(&p);
+
+	p.reset();
+	WTHEAD(&p, 0x231);
+	send(&p);
+
+	p.reset();
+	WTHEAD(&p, 0x77);
+	WTIU32(&p, 100);
+	send(&p);
 }

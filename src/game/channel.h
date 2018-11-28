@@ -6,11 +6,14 @@
 #include "../common/typedef.h"
 #include "../common/utils.h"
 
+#include "gameplay.h"
+
 #define MAX_GAME_LIST 1000
 
-class pc;
+struct pc;
 class Packet;
 class game;
+enum roomErr;
 
 enum GAME_UPDATEACTION {
 	gCreate = 1,
@@ -26,11 +29,21 @@ enum PC_GAMEACTION {
 
 enum {
 	gtStroke = 0,
-	gtChatroom = 2
+	gtChatroom = 2,
+	gtPractice = 19
 };
 
 enum {
 	cmdWeather = 15
+};
+
+struct serverlist {
+	std::string name;
+	uint32 id;
+	std::string ipaddr;
+	uint16 port;
+	uint16 imgevent;
+	uint16 serverimg;
 };
 
 STRUCT_PACK(
@@ -43,6 +56,28 @@ struct gamedata {
 	uint8 hole_total;
 	uint8 map;
 	uint8 mode;
+});
+
+STRUCT_PACK(
+struct holepractice {
+	uint32 natural;
+	uint16 roomname_length;
+	char name[0x1b];
+	uint16 pwd_length;
+	char pwd[8];
+	uint32 un10;
+});
+
+STRUCT_PACK(
+struct holerepeat { 
+	uint8 holepos;
+	uint32 lockhole;
+	uint32 natural;
+	uint16 roomname_length;
+	char name[0x1b];
+	uint16 pwd_length;
+	char pwd[8];
+	uint32 un10;
 });
 
 class Channel {
@@ -69,16 +104,18 @@ public:
 	void sys_game_action(game* game, GAME_UPDATEACTION const& action);
 	void sys_pc_action(pc* pc, PC_GAMEACTION const& action);
 	void sys_gm_command(pc* pc);
-	int sys_get_game_id();
+	int acquire_gameid();
+
+	void send_pc_leave_game(pc* pc);
+	void send_room_error(pc* pc, roomErr err);
 
 	void pc_enter_lobby(pc* pc);
 	void pc_leave_lobby(pc* pc);
 	void pc_quit_lobby(pc* pc);
-	void pc_send_message(pc* pc);
+	void pc_req_chat(pc* pc);
 
-	void pc_create_game(pc* pc);
-	void pc_join_game(pc* pc);
-	void pc_leave_game(pc* pc);
+	void pc_req_create_game(pc* pc);
+	void pc_req_join_game(pc* pc);
 
 	void game_destroy();
 
@@ -88,16 +125,20 @@ public:
 class ChannelManager {
 public:
 	std::vector<Channel*> channel_list;
+	std::vector<std::unique_ptr<serverlist>> serverlist_cache;
 	ChannelManager();
 	~ChannelManager();
 
-	void pc_select_channel(pc* pc);
+	Poco::DateTime lastcache;
+
+	void pc_req_enter_channel(pc* pc);
 
 	Channel* get_channel_ById(uint8 id);
 
+	void getserver_data(pc* pc);
 	void send_channel(pc* pc);
 	void send_channel_full(pc* pc);
 	void send_success(pc* pc);
 };
 
-extern ChannelManager* channel_manager;
+extern ChannelManager* chm;

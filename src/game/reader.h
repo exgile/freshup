@@ -2,11 +2,7 @@
 
 #include "../common/ini_reader.h"
 
-class Config {
-public:
-	Config();
-	~Config();
-	INIReader* read;
-};
+void config_init();
+void config_final();
 
-extern Config* config;
+extern INIReader *config;

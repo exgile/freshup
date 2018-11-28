@@ -8,7 +8,7 @@
 #define DATE_MAX 16
 #define MAX_RAND_GROUP 4
 
-class pc;
+struct pc;
 
 enum {
 	TYPE_INVALID = -1,
@@ -52,7 +52,7 @@ struct itemdb_base {
 	char un[3];
 	uint32 price;
 	uint32 discount_price;
-	uint32 true_price;
+	uint32 un1;
 	uint8 price_type;
 	uint8 flag;
 	uint8 time_flag;
@@ -133,6 +133,14 @@ struct itemdb_card {
 	uint32 un2[2];
 };
 
+struct itemdb_set {
+	struct itemdb_base base;
+	uint32 count;
+	uint32 item_typeid[10];
+	uint16 amount[10];
+	uint8 un[12];
+};
+
 struct magicbox {
 	uint32 id;
 	uint32 enable;
@@ -156,6 +164,8 @@ struct item_group_entry {
 	unsigned int id,
 		amount;
 	bool announce;
+	uint8 rare;
+	std::vector<int> rnd_weight;
 };
 
 struct item_group_random {
@@ -175,22 +185,20 @@ private:
 	void readdb_club();
 	void readdb_ball();
 	void readdb_card();
+	void readdb_set();
 	void readdb_magicbox();
-
-	void _GroupDB_destroy();
 public:
 	ItemDB();
 
-	~ItemDB() {
-		_GroupDB_destroy();
-	}
+	~ItemDB();
 
-	std::map<uint32, std::shared_ptr<itemdb_normal>> item_data;
-	std::map<uint32, std::shared_ptr<itemdb_part>> part_data;
-	std::map<uint32, std::shared_ptr<itemdb_club>> club_data;
-	std::map<uint32, std::shared_ptr<itemdb_ball>> ball_data;
-	std::map<uint32, std::shared_ptr<itemdb_card>> card_data;
-	std::map<uint32, std::shared_ptr<magicbox>> magicbox_data;
+	std::map<uint32, std::unique_ptr<itemdb_normal>> item_data;
+	std::map<uint32, std::unique_ptr<itemdb_part>> part_data;
+	std::map<uint32, std::unique_ptr<itemdb_club>> club_data;
+	std::map<uint32, std::unique_ptr<itemdb_ball>> ball_data;
+	std::map<uint32, std::unique_ptr<itemdb_card>> card_data;
+	std::map<uint32, std::unique_ptr<itemdb_set>> set_data;
+	std::map<uint32, std::unique_ptr<magicbox>> magicbox_data;
 	std::unordered_map<uint32, item_group_db*> group_db;
 
 	void read_random_group(const char* path_to_file);
@@ -198,11 +206,20 @@ public:
 	bool exists(uint32 id);
 	bool buyable(uint32 id);
 	uint32 get_amount(uint32 id);
+	std::string getname(uint32 id);
 	std::pair<char, uint32> get_price(uint32 id);
 
+	// Card System
 	std::pair<bool, uint32> cardpack_data(uint32 id);
 	std::vector<uint32> get_cardpack(uint32 id);
 	void pc_use_cardpack(pc* pc);
+
+	// Papel System
+	void pc_req_bongdari_normal(pc *pc);
+	void pc_req_bongdari_big(pc *pc);
+
+	// Scratch Card
+	void pc_req_scratch_play(pc *pc);
 };
 
 extern ItemDB* itemdb;

@@ -5,11 +5,13 @@
 #include "reader.h"
 #include "account.h"
 #include "socket.h"
+
 #include "../common/db.h"
 #include "../common/crypto.h"
+#include "../common/utils.h"
 
 void signal_handler(int sig) {
-	delete crypt;
+	crypt_final();
 	delete config;
 	delete sclif;
 	delete pc_manager;
@@ -26,8 +28,9 @@ int main(int argc, char *argv[]) {
 		signal(SIGTERM, signal_handler);
 
 		// Initializing
+		rnd_init();
 		db_init();
-		crypt = new Crypto();
+		crypt_init();
 		config = new Config();
 		sclif = new clif();
 		pc_manager = new PC_Manager();

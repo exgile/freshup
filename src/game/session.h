@@ -6,7 +6,7 @@
 #include <boost/asio.hpp>
 #include "../common/asio.hpp"
 
-class pc;
+struct pc;
 class Packet;
 
 using boost::asio::ip::tcp;

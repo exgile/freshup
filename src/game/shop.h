@@ -5,7 +5,7 @@
 
 #define MAX_ITEM_BUY 10
 
-class pc;
+struct pc;
 
 void send_msg(pc* pc, uint32 code, bool success = false);
 void buyitem_result(pc* pc, ITEM_TRANSACTION *tran, uint16 day = 0, uint8 flag = 0);
@@ -15,6 +15,8 @@ void pc_req_buyitem(pc* pc);
 
 void pc_buyitem_normal(pc* pc);
 void pc_buyitem_rent(pc* pc);
+
+bool add_itemcheck(pc *pc, item *item);
 
 enum {
 	BUY_SUCCESS = 0,

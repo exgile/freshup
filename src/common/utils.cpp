@@ -43,6 +43,31 @@ std::string rnd_str(int max_length, std::string possible_chars) {
 	return ret;
 }
 
+int rnd_weight(const std::vector<int>& list) {
+	std::discrete_distribution<> d(list.begin(), list.end());
+	return d(generator) + 1;
+}
+
 uint8 itemdb_type(uint32 id) {
 	return static_cast<uint8>((id & 0xfc000000) / pow(2, 26));
+}
+
+uint32 timestamp() {
+	Poco::DateTime dt = localtime();
+	return (uint32)dt.timestamp().epochTime();
+}
+
+uint32 timestamp(Poco::DateTime const& dt) {
+	return (uint32)dt.timestamp().epochTime();
+}
+
+Poco::DateTime localtime(Poco::DateTime& dt) {
+	dt += Poco::Timespan(7 * Poco::Timespan::HOURS); // Convert to GMT+7
+	return dt;
+}
+
+Poco::DateTime localtime() {
+	Poco::DateTime dt;
+	dt += Poco::Timespan(7 * Poco::Timespan::HOURS); // Convert to GMT+7
+	return dt;
 }

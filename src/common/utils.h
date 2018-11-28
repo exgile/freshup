@@ -1,16 +1,15 @@
 #pragma once
 #include "typedef.h"
-
+#include <Poco/Datetime.h>
+#include <Poco/Timespan.h>
 #include <random>
 
 #define STRUCT_PACK( __Declaration__ ) __pragma( pack(push, 1) ) __Declaration__ __pragma( pack(pop) )
 
 #define COUNTOF(x) (sizeof(x)/sizeof(*x))
 
-#define VECTOR_FIND(v, o) ( std::find(v.begin(), v.end(), o) != v.end() )
 #define CREATE_SHARED(type) ( std::make_shared<type>() )
-#define VECTOR_FINDIF(v, it) ( it != v.end() )
-#define TIMESTAMP(o) ( o.timestamp().epochTime() )
+#define CREATE_UNIQUE(type) ( std::make_unique<type>() )
 
 #define WTHEAD(p, val) ( (p)->write<uint16>(val) )
 
@@ -26,6 +25,7 @@
 #define WTPHEX(p, o, s) ( (p)->write_hex(o, s) )
 #define WTCSTR(p, s) ( (p)->write<std::string>(s) )
 #define WTFSTR(p, s, c) ( (p)->write_string(s, c) )
+#define WTDATETIME(p) ( (p)->write_datetime() )
 #define WTPOINTER(p, pt, s) ( (p)->write((char*)pt, s) )
 #define WTZERO(p, c) ( (p)->write_null(c) )
 
@@ -46,19 +46,24 @@
 
 #define STRCMP(l, r) ( l.compare(r) == 0 )
 
-#define toQStr(str) ( QString::fromLocal8Bit(str.data(), str.size()) )
-#define toStr(qstr) ( qstr.toLocal8Bit().constData() )
-
 // use to free for array of pointers
 #define NULL_POINTER(p)	\
 do {	\
 	delete p;	\
-	p = 0;	\
+	p = nullptr;	\
 } while (0)	\
 
 void rnd_init(void);
 int32 rnd(void);
+uint32 rnd_uint32(void);
 int32 rnd_value(int32 min, int32 max);
 std::string rnd_str(int max_length, std::string possible_chars = "abcdef1234567890");
 
 uint8 itemdb_type(uint32 id);
+
+Poco::DateTime localtime(Poco::DateTime& dt);
+Poco::DateTime localtime();
+uint32 timestamp();
+uint32 timestamp(const Poco::DateTime& dt);
+
+int rnd_weight(const std::vector<int>& list);

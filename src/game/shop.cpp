@@ -7,7 +7,7 @@ void pc_req_entershop(pc* pc) {
 	Packet p;
 	WTHEAD(&p, 0x20E);
 	WTZERO(&p, 8);
-	pc->send_packet(&p);
+	pc->send(&p);
 }
 
 void pc_req_buyitem(pc* pc) {
@@ -62,40 +62,74 @@ void pc_buyitem_normal(pc* pc) {
 
 		printf("pang total %d, cookie total %d , amount is =%d\n", pang_total, cookie_total, itemdb->get_amount(item_buy[i].item_typeid));
 
-		item item;
-		item.type_id = item_buy[i].item_typeid;
-		item.amount = item_buy[i].amount;
+		if (itemdb_type(item_buy[i].item_typeid) == ITEMDB_SETITEM) {
+			for (int k = 0; k < itemdb->set_data[item_buy[i].item_typeid]->count; ++k) {
+				item item;
+				item.type_id = itemdb->set_data[item_buy[i].item_typeid]->item_typeid[k];
+				item.amount = itemdb->set_data[item_buy[i].item_typeid]->amount[k];
 
-		// validate that pc can have this item
-		switch (pc->warehouse->additem(pc,  &item, true)) {
-		case CHECKITEM_PASS:
-			break;
-		case CHECKITEM_FAIL:
-			send_msg(pc, BUY_FAIL);
-			return;
-			break;
-		case CHECKITEM_OVERLIMIT:
-			send_msg(pc, TOO_MUCH_ITEM);
-			return;
-			break;
-		case CHECKITEM_DUPLICATED:
-			send_msg(pc, ALREADY_HAVEITEM);
-			return;
-			break;
+				if (item.type_id == 0)
+					continue;
+
+				if (!add_itemcheck(pc, &item))
+					return;
+			}
+		}
+		else {
+			item item;
+			item.type_id = item_buy[i].item_typeid;
+			item.amount = item_buy[i].amount;
+
+			if (!add_itemcheck(pc, &item))
+				return;
 		}
 	}
 	
 	for (int i = 0; i < buy_total_item; ++i) {
-		item item;
-		item.type_id = item_buy[i].item_typeid;
-		item.amount = item_buy[i].amount;
+		if (itemdb_type(item_buy[i].item_typeid) == ITEMDB_SETITEM) {
+			for (int k = 0; k < itemdb->set_data[item_buy[i].item_typeid]->count; ++k) {
+				item item;
+				item.type_id = itemdb->set_data[item_buy[i].item_typeid]->item_typeid[k];
+				item.amount = itemdb->set_data[item_buy[i].item_typeid]->amount[k];
 
-		ITEM_TRANSACTION tran = CREATE_SHARED(INV_TRANSACTION);
-		pc->warehouse->additem(pc, &item, false, &tran);
-		buyitem_result(pc, &tran, 0, 0);
+				if (item.type_id == 0)
+					continue;
+
+				ITEM_TRANSACTION tran = CREATE_SHARED(INV_TRANSACTION);
+				pc_additem(pc, &item, false, &tran);
+				buyitem_result(pc, &tran, 0, 0);
+			}
+		}
+		else {
+			item item;
+			item.type_id = item_buy[i].item_typeid;
+			item.amount = item_buy[i].amount;
+
+			ITEM_TRANSACTION tran = CREATE_SHARED(INV_TRANSACTION);
+			pc_additem(pc, &item, false, &tran);
+			buyitem_result(pc, &tran, 0, 0);
+		}
 	}
 
 	send_msg(pc, BUY_SUCCESS, true);
+}
+
+bool add_itemcheck(pc *pc, item *item) {
+	switch (pc_additem(pc, item, true)) {
+	case CHECKITEM_PASS:
+		return true;
+	case CHECKITEM_FAIL:
+		send_msg(pc, BUY_FAIL);
+		return false;
+	case CHECKITEM_OVERLIMIT:
+		send_msg(pc, TOO_MUCH_ITEM);
+		return false;
+	case CHECKITEM_DUPLICATED:
+		send_msg(pc, ALREADY_HAVEITEM);
+		return false;
+	}
+
+	return false;
 }
 
 void pc_buyitem_rent(pc* pc) {
@@ -111,11 +145,11 @@ void buyitem_result(pc* pc, ITEM_TRANSACTION* tran, uint16 day, uint8 flag) {
 	WTIU16(&p, day);
 	WTIU08(&p, flag);
 	WTIU16(&p, (*tran)->new_amount);
-	p.write_datetime((*tran)->timestamp_end);
+	p.write_datetime((*tran)->date_end);
 	WTFSTR(&p, (*tran)->ucc_unique, 9);
 	WTIU64(&p, 1000000); // pc pang
 	WTIU64(&p, 1000000); // pc cookie;
-	pc->send_packet(&p);
+	pc->send(&p);
 }
 
 void send_msg(pc* pc, uint32 code, bool success) {
@@ -128,5 +162,5 @@ void send_msg(pc* pc, uint32 code, bool success) {
 		p.write<uint64>(100000000);
 	}
 
-	pc->send_packet(&p);
+	pc->send(&p);
 }

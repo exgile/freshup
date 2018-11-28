@@ -1,31 +1,34 @@
 #include "crypto.h"
 
-Crypto* crypt = nullptr;
+DecryptFunc decrypt = nullptr;
+EncryptFunc encrypt = nullptr;
+FreeMemFunc freemem = nullptr;
+HINSTANCE hInst = nullptr;
 
-Crypto::Crypto() {
+void crypt_init() {
 	hInst = LoadLibraryA("Project1.dll");
 
 	if (!hInst) {
 		return;
 	}
 
-	Decrypt = (DecryptFunc)GetProcAddress(hInst, "__Decrypt");
-	Encrypt = (EncryptFunc)GetProcAddress(hInst, "__Encrypt");
-	_FreeMem = (FreeMemFunc)GetProcAddress(hInst, "__FreeMem");
+	decrypt = (DecryptFunc)GetProcAddress(hInst, "__Decrypt");
+	encrypt = (EncryptFunc)GetProcAddress(hInst, "__Encrypt");
+	freemem = (FreeMemFunc)GetProcAddress(hInst, "__FreeMem");
 
-	if (!Decrypt) {
+	if (!decrypt) {
 		return;
 	}
 
-	if (!Encrypt) {
+	if (!encrypt) {
 		return;
 	}
 
-	if (!_FreeMem) {
+	if (!freemem) {
 		return;
 	}
 }
 
-Crypto::~Crypto() {
+void crypt_final() {
 	FreeLibrary(hInst);
 }

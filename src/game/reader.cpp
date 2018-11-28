@@ -1,12 +1,12 @@
 #include <iostream>
 #include "reader.h"
 
-Config* config = nullptr;
+INIReader *config = nullptr;
 
-Config::Config()  {
-	read = new INIReader("config/config.txt");
+void config_init() {
+	config = new INIReader("config/config.txt");
 }
 
-Config::~Config() {
-	delete read;
+void config_final() {
+	delete config;
 }

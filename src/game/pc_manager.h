@@ -2,7 +2,7 @@
 
 #define MAX_PLAYER 2000
 
-class pc;
+struct pc;
 class Session;
 class Packet;
 
@@ -15,6 +15,8 @@ public:
 	pc* pc_new(Session* session);
 	void pc_remove(pc* pc);
 	void broadcast(Packet* packet);
+
+	void kickall();
 };
 
-extern PC_Manager* pc_manager;
+extern PC_Manager* pcm;

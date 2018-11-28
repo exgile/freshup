@@ -3,30 +3,30 @@
 #include "../common/crypto.h"
 #include "../common/timer.h"
 #include "../common/utils.h"
+#include "../common/timer.h"
 
 #include "spdlog/sinks/stdout_color_sinks.h"
 #include "socket.h"
 #include "pc_manager.h"
 #include "reader.h"
-#include "account.h"
 #include "channel.h"
 #include "itemdb.h"
+#include "packetdb.h"
 
 #include <boost/format.hpp>
 
 void signal_handler(int sig) {
-	delete crypt;
-	delete config;
-	delete pc_manager;
-	delete channel_manager;
+	pcm->kickall();
+	delete chm;
+	delete pcm;
 	delete itemdb;
-	delete timer;
+	config_final();
+	crypt_final();
 	db_final();
+	timer_final();
 }
 
-
 int main(int argc, char *argv[]) {
-
 	auto console = spdlog::stdout_color_mt("console");
 	try {
 #ifdef SIGBREAK
@@ -37,16 +37,23 @@ int main(int argc, char *argv[]) {
 
 		// Initializing
 		db_init();
-		timer = new TimerQueue();
-		crypt = new Crypto();
-		config = new Config();
-		pc_manager = new PC_Manager();
-		channel_manager = new ChannelManager();
+		crypt_init();
+		packetdb_init();
+		rnd_init();
+		config_init();
+		timer_init();
+		pcm = new PC_Manager();
+		chm = new ChannelManager();
 		itemdb = new ItemDB();
 
 		boost::asio::io_context io_context;
-		Socket server(io_context, config->read->GetInteger("game", "port", 20201));
-		io_context.run();
+		Socket server(io_context, config->GetInteger("game", "port", 20201));
+
+		while (true) {
+			io_context.poll();
+			do_timer();
+			std::this_thread::sleep_for(std::chrono::microseconds(10)); // Prevent CPU cycle loop
+		}
 	}
 	catch (std::exception& e) {
 		std::cerr << "[ERROR]" << e.what() << std::endl;

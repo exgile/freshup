@@ -8,14 +8,14 @@
 #include "pc.h"
 #include "pc_manager.h"
 #include "static.h"
-Session::Session(boost::asio::io_context& io_context) : socket_(io_context), key_(0), pc_(pc_manager->pc_new(this)) {}
+Session::Session(boost::asio::io_context& io_context) : socket_(io_context), key_(0), pc_(pcm->pc_new(this)) {}
 
 Session::pointer Session::create(boost::asio::io_context& io_context) {
 	return pointer(new Session(io_context));
 }
 
 Session::~Session() {
-	pc_manager->pc_remove(pc_);
+	pcm->pc_remove(pc_);
 }
 
 boost::asio::ip::tcp::socket& Session::get_socket() {
@@ -85,7 +85,7 @@ void Session::handle_read_body(const boost::system::error_code &ec, std::size_t 
 		unsigned __int16 actual_bytes_recv = bytes_recv + 4; // we must add 4 bytes because we already read 4 bytes of header
 
 		// decrypt packet note: we must add 4 to bytes_recv because we already read header
-		crypt->Decrypt(receive_buffer_.get(), key_, actual_bytes_recv);
+		decrypt(receive_buffer_.get(), key_, actual_bytes_recv);
 
 		pc_->handle_packet(actual_bytes_recv);
 
@@ -134,7 +134,7 @@ void Session::send_packet(Packet *packet) {
 		int newSize = 0;
 
 		unsigned char *send_buffer;
-		crypt->Encrypt(packet_buffer, key_, packet_length, &send_buffer, &newSize);
+		encrypt(packet_buffer, key_, packet_length, &send_buffer, &newSize);
 
 		auto handler = boost::bind(&Session::send_handler, shared_from_this(), boost::asio::placeholders::error, boost::asio::placeholders::bytes_transferred, send_buffer);
 		boost::asio::async_write(socket_, boost::asio::buffer(send_buffer, newSize), handler);
@@ -150,7 +150,7 @@ unsigned char* Session::get_receive_buffer() {
 
 void Session::send_handler(const boost::system::error_code &ec, std::size_t bytes_transferred, unsigned char *send_buffer) {
 	try {
-		crypt->_FreeMem(&send_buffer);
+		freemem(&send_buffer);
 	}
 	catch (std::exception& e) {
 		spdlog::get("console")->critical(e.what());

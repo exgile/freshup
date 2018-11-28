@@ -19,7 +19,7 @@ public:
 	void write_null(size_t amount);
 	void write_string(std::string str, std::size_t slen);
 	void write_datetime();
-	void write_datetime(Poco::DateTime const& datetime);
+	void write_datetime(const Poco::DateTime& datetime);
 	void SaveToFile(std::string fileName);
 	void reset();
 	unsigned char *get_buffer();
@@ -37,8 +37,8 @@ public:
 
 	void write(char* data, std::size_t size) {
 		if (length_ + size >= buffer_size_) {
-			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + kIncreaseSize);
-			buffer_size_ += kIncreaseSize;
+			buffer_ = (unsigned char*)realloc(buffer_, buffer_size_ + size);
+			buffer_size_ += size;
 		}
 
 		memcpy(buffer_ + length_, data, size);
